@@ -37,6 +37,7 @@ Example selected 2026-10-15: daily 2026-10-15; MTD 2026-10-01–2026-10-15; mont
 
 ## API contract
 All paths below start with `/api`. JSON errors: `{ "error": { "code": "...", "message": "..." } }`.
+- GET /config: public {timeZone,today}; server-derived calendar settings without secrets.
 - GET /health: public, checks database availability, 200 healthy or 503 unavailable.
 - POST /auth/register: {name,email,password}; 201 {user}, sets session cookie.
 - POST /auth/login: {email,password}; 200 {user}, sets session cookie; 401 generic incorrect credentials.
@@ -79,3 +80,6 @@ React login/signup screens, responsive dashboard, date selector, four slot contr
 
 ## Agent workflow and acceptance
 Read AGENTS.md, this specification, current_work.md and git status before starting. Each agent appends a timestamped completion record to current_work.md: task, files, decisions, tests, limitations, next steps. Preserve previous records. Coordinate ownership and avoid editing others' files. The lead integrates, reviews, runs complete tests and owns commits/pushes. Never claim frontend, deployment or full assignment completion from API success alone.
+
+## Frontend implementation notes
+React/Vite npm workspace client; relative /api requests with cookie credentials and dev/preview proxy to Express. Server /api/config supplies timezone and today. UI covers Overview, Reports and paginated History; native dialogs with explicit keyboard looping; request cancellation guards prevent stale data/errors. CI checks client helper tests and production build; browser journeys are documented in TEST_REPORT.md. Local preview is not a hosted deployment.

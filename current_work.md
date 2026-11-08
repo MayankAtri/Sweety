@@ -125,3 +125,34 @@ Read spec.md and AGENTS.md before work. Append records; do not rewrite history. 
 - Added React/Vite client workspace and shared API client with cookie credentials; responsive white/blue dashboard shell, daily/report/history navigation, server-based dates, abortable data loading, session-expiry handling, mutation refresh and delete confirmation.
 - Integrated form/view subagent components. Added public /api/config contract via third agent to avoid client/server timezone disagreement.
 - First production build passed. Backend restarted to load config endpoint; frontend serves on port 5173. Browser acceptance is now in progress, not yet claimed.
+
+
+## 2026-11-08 13:20 Asia/Kolkata — frontend forms agent integration review
+- Read-only reviewed App.jsx, lib.js and form integration for session handling, stale responses and modal behavior; implementation files unchanged.
+- Reproduced one cancellation defect with a controlled response.json AbortError: shared api helper swallowed it and returned INVALID_RESPONSE/502. App's request catch only ignores AbortError by name, so aborted body reads can render stale load errors; advised lead to preserve AbortError and guard controller.signal.aborted in effect callbacks. This is a deterministic helper reproduction, not a claim of browser reproduction.
+- Minor copy mismatch: history subtitle says recording order, while API uses date-descending/slot order. Sent both findings to lead. Native reading dialog has labels, modal focus handling, pending Escape protection and error announcement; browser focus restoration remains lead verification.
+- No other concrete session/ownership defect identified from this review. No Git actions. Lead owns fixes and browser acceptance.
+
+## 2026-11-08 13:20 Asia/Kolkata — frontend views agent review
+- Read-only reviewed integrated App.jsx, styles.css and form/view components for responsive/accessibility/data correctness. No browser launched, source changed or Git operations performed.
+- Found supported long single-word names can force the greeting flex item beyond mobile viewport width: recommend min-width:0 on the page-header text child and overflow-wrap:anywhere on the greeting. Sent lead a browser reproduction suggestion using a 100-character name.
+- Found history header copy claimed record-creation order while the API sorts reading date/slot; recommended “Your readings, organized by date.” HistoryView's own description already matches the API.
+- No additional ownership, report-range or empty-state correctness blocker identified from source review. Main/dialog labels, semantic history table, bounded pagination, async request keys and native modal focus handling are present; actual keyboard, responsive and session flows remain the lead's browser verification responsibility.
+
+
+## 2026-11-08 13:21 Asia/Kolkata — frontend request cancellation fix and regression tests
+- Fixed client/src/lib.js so response.json AbortError propagates unchanged instead of becoming a 502 fallback. Lead separately owns App effect cancellation guards.
+- Added client/test/lib.test.js with 10 meaningful Node tests: credentialed mutation serialization, initial-fetch cancellation, successful-body cancellation, cancelled401 response, safe network errors, exact API conflict message, non-JSON fallbacks,204 empty response, leap/minimum calendar validation and display helpers. These are unit tests with controlled fetch responses, not browser or database acceptance.
+- Verification: `node --test client/test/lib.test.js` passed 10/10, no failures/skips. Other agent implementation files preserved; no package/Git changes.
+- Next: lead wires unit command into project scripts/CI and completes browser navigation/error-path verification.
+
+## 2026-11-08 13:27 Asia/Kolkata — lead browser acceptance and frontend handoff
+- Frontend implementation milestone 1729253 pushed. Integrated all three subagents and their review fixes. Added 10 client helper regression tests; public config endpoint adds 2 API tests. Automated total: 51 API tests + 1 HTTP E2E journey + 10 client tests = 62 passing tests. Optimized Vite build and npm audit (0 vulnerabilities) pass.
+- Chromium/Playwright CLI exercised signup/name validation, duplicate account, incorrect login, password visibility, demo fill, two-account isolation, empty states, reading required/range/fraction/future validation, duplicate/full-day server errors, all slots, edits/date moves, delete confirm/cancel, date controls, three report calculations, history pagination and last-page deletion.
+- Verified reload session persistence, expired cookie clears protected data, logout across reload, startup network failure/retry, reports failure/retry, failed logout preserves session, loading state and stale cancelled request protection. A complete CRUD/report/history/login/logout journey was repeated against optimized Vite preview, not only dev mode.
+- Fixed review finding: aborted response.json errors were swallowed and could surface stale errors/false expiry. lib.js rethrows AbortError and App effects guard aborted work. Unit regressions and live held-request/date-switch browser test pass.
+- Fixed 100-character-name mobile overflow and history sort description. Native dialog Tab traversal initially reached browser chrome; explicit forward/reverse focus wrapping added and retested for reading/delete dialogs. Escape and autofocus verified.
+- Responsive checks passed at widths 320/390/768/1440. Mobile actual add/delete/login/logout worked. Captured visually reviewed demo-only screenshots in docs/screenshots (login, overview, reports, mobile). No unexpected uncaught page errors in production capture journey; intentional 401/409/network failure messages are expected.
+- Updated README, spec and TEST_REPORT with actual client commands, feature/verification matrix and limits. CI now runs all automated suites plus React build. Browser journeys are interactive CLI verification, not falsely claimed as automated CI browser coverage. Safari/Firefox/physical devices/formal screen-reader and deployed HTTPS checks remain unperformed.
+- Local API remains on 3001 with isolated PostgreSQL on 55439. Client dev process was stopped; optimized preview now runs at http://localhost:5173 . Use localhost to match CLIENT_ORIGIN. For edits stop preview before npm run dev:client (same port). Synthetic browser QA accounts remain local; seeded demo unchanged after QA.
+- Next: verify final pushed CI. Frontend phase is implemented and browser-verified; no hosting/deployment was requested or performed. Keep this handoff append-only and preserve secrets/ignored runtime directories.

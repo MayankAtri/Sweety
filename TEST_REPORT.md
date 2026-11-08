@@ -1,72 +1,77 @@
-# Sweety API verification report
+# Sweety verification report
 
-Verified 8 November 2026 (Asia/Kolkata). Scope: all implemented foundation and API features. React frontend and deployed HTTPS environment do not exist yet.
+Verified 8 November 2026 (Asia/Kolkata). Scope: React frontend, Express API, PostgreSQL foundation, local production build and complete patient journeys. No hosted deployment is claimed.
 
-## Results
+## Automated results
 
-| Environment | Result |
+| Suite | Result | Coverage |
+| --- | --- | --- |
+| API/integration/security/foundation | 51 passed | Auth, sessions, ownership, reading CRUD/validation/concurrency, reports, migration/seed, config, lifecycle |
+| HTTP E2E | 1 complete journey passed | Real spawned API process, cookie jar, signup → CRUD → reports → restart → isolation → logout/login |
+| Client helper regression | 10 passed | Credentials, JSON requests, cancellation during fetch/body read, network/server errors, empty responses, calendar validation and formatting |
+| Production build | Passed | Optimized React/Vite bundle |
+| Dependency audit | Zero known vulnerabilities reported | npm installation audit |
+
+CI runs `npm run test:all` and `npm run build` against PostgreSQL 17 on every push/PR. The expanded frontend phase was locally verified against PostgreSQL 18. The preceding 50-test backend phase also passed on Docker PostgreSQL 17, including real database outage/recovery (health 200 → 503 → 200).
+
+## Real-browser acceptance
+
+Playwright CLI drove Chromium through the UI against the actual Express API and local PostgreSQL. Test accounts were synthetic. Captured screenshots use the explicitly seeded demo account. Tests ran on the Vite dev server, followed by a production-build journey on Vite preview.
+
+| Feature / state | Browser result |
 | --- | --- |
-| Local PostgreSQL 18, Node 22 | 49 integration/security/data/foundation tests passed; 1 complete HTTP E2E journey passed |
-| Docker Compose PostgreSQL 17, Node 22 | Same 50 tests passed |
-| Dependency audit | `npm audit --audit-level=low`: zero known vulnerabilities reported |
-| Docker setup | Compose startup/health, test DB creation, migrations and seed passed |
-| Database outage/recovery | Live API health 200 → 503 → 200; API remained alive |
-| GitHub Actions | [Audit implementation run passed](https://github.com/MayankAtri/Sweety/actions/runs/42459730945): both suites on PostgreSQL 17. Later documentation pushes also rerun both suites. |
+| Signup | Required-name error, valid registration, duplicate-account error; authenticated dashboard |
+| Login | Wrong-password error, working password visibility toggle, valid login, demo credential autofill/login |
+| Session | Reload restores account, deleted cookie triggers clear expiry notice/login, logout remains logged out after reload |
+| Isolation | Second account sees zero daily readings, empty history and three empty reports |
+| Add reading | Actual UI creation for historical dates and all four slots |
+| Validation | Missing value, 39/601 bounds, decimal value, future date; clear inline messages |
+| Conflicts | API duplicate-slot and fifth-reading errors shown in the dialog without losing form state |
+| Edit | Value change refreshes daily average; history edit moves the date and refreshes table |
+| Delete | Cancel preserves record; confirmation removes it; deleting final item on page 2 returns to page 1 |
+| Reports | Verified daily 126.7, month-to-date 120.0 and previous-month 90.0 from controlled UI-created readings; correct month boundaries and empty states |
+| History | Created 13 records through UI; 12-row first page, one-row second page, navigation and refresh |
+| Date navigation | Previous/next/Today state, future date rejected, server-configured timezone/date |
+| Loading/cancellation | Held a report request to check loading state; switched date then failed stale request; current screen retained correct data with no stale error |
+| Error recovery | Startup/config network failure and retry; report network failure and retry; failed logout keeps session and displays error |
+| Keyboard | Reading autofocus; forward/reverse Tab wrapping in both dialogs; Escape dismissal; native modal background isolation |
+| Responsive | No document overflow at 320, 390, 768 and 1440 pixels, including a 100-character single-word name |
+| Mobile actions | Add/delete, navigation, empty reports/history, logout/login |
+| Production build | Reload/session restore, actual login, create/edit/delete, reports/history and logout; desktop/mobile screenshots; no uncaught page errors during capture journey |
 
-## Feature and failure coverage
+Deliberately induced 401/409 responses and aborted network requests appeared as expected browser network errors. They are not presented as application crashes. Browser testing was performed interactively using Playwright CLI; it is **not** an unattended browser suite in GitHub Actions.
 
-| Area | Verified |
-| --- | --- |
-| Registration | Required fields, normalized email, duplicate/concurrent signup, bcrypt storage, Unicode password byte limits, no internal fields in responses |
-| Login/session | Correct/wrong/unknown credentials; digest-only session storage; HttpOnly/SameSite flags; production Secure flag generation; tampered/expired cookie; session rotation and multiple-device independence |
-| Logout | Revocation, old-cookie replay rejection, repeat logout, unaffected other-device sessions |
-| Authorization | Unauthenticated access blocked; other-user reads/reports empty; edits/deletes return 404; injected ownership/ID/timestamps ignored |
-| Reading validation | Missing values, fractions, numeric strings, 40/600 boundaries, malformed types, invalid slots/dates, leap-century dates, future dates relative to timezone midnight |
-| CRUD | Creation/listing, full replacement edit, moving dates/slots, failed-write preservation, delete and missing record; created timestamp retained |
-| Daily invariants | Duplicate slot, fourth/fifth reading behavior, concurrency on create/edit/delete, same dates independent across users |
-| Pagination | Stable date/slot sorting, limits, malformed/repeated query values, out-of-range page with correct total, bigint IDs without precision loss |
-| Reports | Daily/MTD/previous-month windows, rounded average/count/min/max, daily slot order, empty null statistics, edits/deletes reflected, exact boundaries, leap/DST/year changes |
-| HTTP security/errors | Exact-origin credentialed CORS/preflight, foreign/null Origin and cross-site writes rejected, auth throttling, no-store, security headers, malformed/oversized JSON, bad URL, unsupported encoding, corrupt gzip |
-| Configuration | Invalid ports/database URL/timezone/origin/environment rejected; production HTTPS origin enforced |
-| Database/setup | Database constraints; repeated/concurrent migration commands; transactional migration failure rollback; repeatable seed without overwrites; production seed blocked |
-| Lifecycle | Startup, real TCP health, database unavailable, bind conflict, graceful SIGTERM, database outage and recovery |
+## Fixes found during frontend work
 
-## HTTP end-to-end journey
+- Request body parsing swallowed `AbortError`, potentially converting a cancelled request into a false error or session-expiry event. Cancellation now propagates and data-loading effects ignore aborted requests. Regression tests and a browser stale-request check pass.
+- A long valid name could force the greeting wider than a mobile viewport. The flex item can shrink and the greeting wraps; checked with 100 characters at four widths.
+- Native dialog Tab navigation could move focus to browser chrome after the final control. Explicit forward/reverse wrapping now keeps focus on modal controls; verified in both dialogs.
+- Corrected history copy to describe reading-date order, and configured client startup URLs to use `localhost`, matching the API's allowed Origin.
 
-`server/e2e/api.e2e.js` starts `server/src/index.js` as a separate process and sends requests over TCP using a cookie jar. It creates a patient, exercises invalid input, fills all four slots, verifies conflicts and all reports, edits/deletes readings, restarts the actual process, confirms session/data persistence, checks another patient's isolation, logs out and rejects the revoked cookie, then logs back in.
+## Backend coverage and fixes retained
 
-This is API E2E coverage. It does not pretend that manually attaching cookies establishes real browser cookie behavior, UI accessibility, visual correctness or HTTPS deployment correctness.
+Verified hashed passwords, digest-only sessions, rotation/expiry/logout/multiple devices, production cookie flag generation, normalized concurrent signup, Unicode password bounds, unauthorized and cross-user access, injected ownership ignored, integer/date/slot validation, failed-write preservation, create/edit/delete races, exact bigint IDs, stable pagination, leap-century/year/DST report boundaries, report mutation refresh, HTTP error/security headers, rate limits, migrations concurrency/rollback, seed non-overwrite and production refusal, configuration, occupied port and graceful shutdown.
 
-## Fixes from this audit
-
-1. Unsupported JSON charset/content encoding returned 500. It now returns a safe JSON 415 response.
-2. Malformed percent-encoded route IDs returned 500. They now return JSON 400.
-3. Corrupt compressed request bodies now return a generic safe 400 response.
-4. API responses now send `Cache-Control: no-store` to prevent caching account and glucose data.
-5. Seed database connection acquisition was outside error handling. Failures now produce a sanitized error and close the pool.
-6. API startup database and occupied-port failures were not handled explicitly. Startup now logs safe error codes and releases the pool; graceful shutdown is tested.
-
-No defect was reproduced in reading ownership, daily uniqueness, CRUD or report calculations during the expanded audit.
+The earlier API audit fixed unsupported charset/encoding and malformed-URL 500 responses, corrupt compressed body handling, sensitive-response caching, and unhandled startup/seed connection failures. No reading/report algorithm defect was reproduced.
 
 ## Reproduce
 
-Configure a disposable `TEST_DATABASE_URL` ending in `_test` in the root `.env` (see README), then:
+Follow README database setup and configure a disposable `TEST_DATABASE_URL` ending in `_test`:
 
 ```sh
 npm ci
-npm test
-npm run test:e2e
-# or both
 npm run test:all
+npm run build
 ```
 
-Integration tests reset data in the dedicated test database. Each suite can run independently. E2E uses unique synthetic accounts, never real patient data. The test runner runs files sequentially because suites share a database in CI. Do not run separate test commands concurrently against the same database.
+Integration suites reset their configured test database and run sequentially. Do not run separate suites concurrently against the same database. For browser checks, start `npm run dev` for the API and `npm run dev:client` for the UI, or build and run `npm run preview`. Open `http://localhost:5173`, use the demo login, or register a separate synthetic account to repeat mutations without changing demo data.
 
-The manual Docker outage check used only the owned `sweety-qa` Compose project. The first harness attempt encountered a reused HTTP socket reset after blocking for Docker startup; repeating with fresh connections verified all three health states. This was not treated as evidence of an API failure.
+Screenshots: [overview](docs/screenshots/overview.png), [reports](docs/screenshots/reports.png), [mobile](docs/screenshots/mobile-overview.png), [login](docs/screenshots/login.png).
 
 ## Limits
 
-- No frontend exists: browser forms, navigation, accessibility, responsive layout and screenshots remain untested.
-- Secure cookie settings were asserted, but a deployed HTTPS/browser journey was not run.
-- Concurrency tests cover application invariants; this is not a load/stress capacity benchmark or penetration-test certification.
-- No deployment, distributed rate-limit setup, backup/restore or production operations are claimed.
+- Chromium was exercised; Safari, Firefox and physical mobile devices were not tested.
+- Keyboard semantics and responsive layout were checked, but no formal screen-reader audit is claimed.
+- Secure cookie flags were asserted; no hosted HTTPS/browser environment was deployed.
+- Concurrency checks establish application invariants, not production capacity or penetration-test certification.
+- Browser screenshot/flow evidence is local/manual; CI covers API, HTTP E2E, client helper tests and build.
