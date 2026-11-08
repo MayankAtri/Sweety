@@ -1543,3 +1543,94 @@ button:not(:disabled):active {
 .page-header .eyebrow {
   overflow-wrap: anywhere;
 }
+
+/* Actual recorded values, with explicit gaps for missing readings. */
+.trend-card {
+  margin-top: 28px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+.trend-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.trend-heading h2 {
+  margin-bottom: 8px;
+}
+.trend-heading p:last-child {
+  margin-bottom: 0;
+}
+.trend-chart {
+  font-family: inherit;
+}
+.trend-note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 12px 0;
+  max-width: 740px;
+}
+.trend-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: white;
+  color: #19202e;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px #19202e12;
+  padding: 12px 15px;
+  font-size: 12px;
+}
+.trend-tooltip strong {
+  color: var(--blue);
+  font-size: 15px;
+}
+.trend-tooltip span {
+  color: var(--muted);
+}
+.trend-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 14px;
+}
+.trend-empty {
+  padding: 24px 0 10px;
+  color: var(--muted);
+}
+.trend-empty svg {
+  color: var(--blue);
+  margin-bottom: 16px;
+}
+.trend-empty h3 {
+  color: #19202e;
+  margin-bottom: 9px;
+}
+.trend-empty p {
+  font-size: 13px;
+  margin-bottom: 0;
+}
+@media (max-width: 760px) {
+  .trend-card {
+    padding: 22px 16px;
+  }
+  .trend-heading .eyebrow {
+    font-size: 10px;
+  }
+  .trend-heading h2 {
+    font-size: 19px;
+  }
+  .trend-note {
+    font-size: 11px;
+  }
+  .trend-heading .reading-count {
+    font-size: 10px;
+  }
+}

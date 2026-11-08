@@ -1,4 +1,5 @@
 import { CalendarDays, CalendarRange, Calendar } from "lucide-react";
+import MonthlyChart from "./MonthlyChart.jsx";
 import { average, formatDate } from "../lib.js";
 
 const periods = [
@@ -22,7 +23,7 @@ const periods = [
   },
 ];
 
-export default function ReportsView({ reports }) {
+export default function ReportsView({ reports, trend }) {
   return (
     <section aria-labelledby="reports-title">
       <div className="section-heading">
@@ -86,6 +87,7 @@ export default function ReportsView({ reports }) {
           );
         })}
       </div>
+      <MonthlyChart trend={trend} />
       <p className="muted report-footnote">
         All reports follow the selected date. Averages are rounded to one
         decimal place.

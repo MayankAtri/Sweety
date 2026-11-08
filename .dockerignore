@@ -1,0 +1,29 @@
+# Only source/manifests needed for builds enter the context.
+**
+!package.json
+!package-lock.json
+!server/
+!server/package.json
+!server/src/
+!server/src/**
+!server/scripts/
+!server/scripts/**
+!server/migrations/
+!server/migrations/**
+!server/Dockerfile
+!client/
+!client/package.json
+!client/index.html
+!client/vite.config.js
+!client/src/
+!client/src/**
+!client/public/
+!client/public/**
+!client/Dockerfile
+!client/nginx.conf
+# Defense in depth if new source folders later contain local files.
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+**/.DS_Store

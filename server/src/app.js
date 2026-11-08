@@ -11,6 +11,7 @@ import { requireAuth } from './auth.js';
 import authRouter from './routes/auth.js';
 import readingsRouter from './routes/readings.js';
 import reportsRouter from './routes/reports.js';
+import trendsRouter from './routes/trends.js';
 
 export function createApp() {
   const app = express();
@@ -61,6 +62,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/readings', requireAuth, readingsRouter);
   app.use('/api/reports', requireAuth, reportsRouter);
+  app.use('/api/trends', requireAuth, trendsRouter);
   app.use((req, res, next) => next(new AppError(404, 'NOT_FOUND', 'Endpoint not found.')));
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);

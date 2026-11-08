@@ -35,3 +35,20 @@ jobs:
       - run: npm run build
         env:
           NODE_ENV: production
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+      - run: docker compose -p sweety-ci up -d --build --wait
+      - run: docker compose -p sweety-ci exec -T api node server/scripts/seed.js
+      - run: npm run test:docker
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose -p sweety-ci logs --no-color
+      - name: Remove CI stack
+        if: always()
+        run: docker compose -p sweety-ci down -v

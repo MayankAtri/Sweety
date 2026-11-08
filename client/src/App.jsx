@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -25,7 +25,7 @@ import {
 import AuthScreen from "./components/AuthScreen.jsx";
 import ReadingDialog from "./components/ReadingDialog.jsx";
 import DailyView from "./components/DailyView.jsx";
-import ReportsView from "./components/ReportsView.jsx";
+const ReportsView = lazy(() => import("./components/ReportsView.jsx"));
 import HistoryView from "./components/HistoryView.jsx";
 
 function DeleteDialog({ reading, onClose, onConfirm }) {
@@ -118,7 +118,7 @@ export default function App() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
-  const requestKey = `${user?.id}/${view === "history" ? `history/${page}` : `reports/${date}`}/${version}`;
+  const requestKey = `${user?.id}/${view}/${view === "history" ? `history/${page}` : `reports/${date}`}/${version}`;
   const data = result?.key === requestKey ? result.data : null;
   const expire = () => {
     setUser(null);
@@ -163,7 +163,14 @@ export default function App() {
       view === "history"
         ? `/readings?page=${page}&limit=12`
         : `/reports?date=${date}`;
-    api(path, { signal: controller.signal })
+    const request =
+      view === "reports"
+        ? Promise.all([
+            api(path, { signal: controller.signal }),
+            api(`/trends?date=${date}`, { signal: controller.signal }),
+          ]).then(([reports, trend]) => ({ ...reports, trend }))
+        : api(path, { signal: controller.signal });
+    request
       .then((response) => {
         if (!controller.signal.aborted)
           setResult({ key: requestKey, data: response });
@@ -507,7 +514,15 @@ export default function App() {
             onDelete={setDeleting}
           />
         ) : view === "reports" ? (
-          <ReportsView reports={data} />
+          <Suspense
+            fallback={
+              <div className="loading-panel" role="status">
+                Loading reports…
+              </div>
+            }
+          >
+            <ReportsView reports={data} trend={data.trend} />
+          </Suspense>
         ) : (
           <HistoryView
             data={data}

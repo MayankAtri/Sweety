@@ -20,6 +20,7 @@
     "dev:client": "npm run dev --workspace client",
     "build": "npm run build --workspace client",
     "preview": "npm run preview --workspace client",
-    "test:client": "npm run test --workspace client"
+    "test:client": "npm run test --workspace client",
+    "test:docker": "node scripts/docker-smoke.mjs"
   }
 }
