@@ -57,7 +57,7 @@ Cookie auth: protect browser writes by checking Origin against configured CLIENT
 
 ## Assumptions
 - APP_TIMEZONE defaults to Asia/Kolkata and determines today; database dates carry no time component.
-- Historical readings and reports are allowed; future selected report dates are rejected.
+- Historical readings and reports are allowed; future selected report dates are rejected. Supported dates start at 0001-02-01, avoiding a year-zero previous-month report that PostgreSQL cannot represent.
 - Passwords: minimum 8 characters, maximum 72 UTF-8 bytes (bcrypt limit). Names 1–100 characters; emails valid basic format, maximum 254 characters.
 - No clinical interpretation, target ranges, diagnosis, or dosage suggestions.
 - No password reset/email verification in assignment scope. Document production improvements.
