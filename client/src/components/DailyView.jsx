@@ -1,160 +1,247 @@
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Sun,
-  Sunrise,
-  Sunset,
-  Moon,
-  Check,
-} from "lucide-react";
-import { SLOTS, average, formatDate } from "../lib.js";
+import { useEffect, useId, useRef, useState } from "react";
+import { Sunrise, Sun, Utensils, Moon, Check, Trash2 } from "lucide-react";
+import { SLOTS, average } from "../lib.js";
 
-const slotIcons = [Sunrise, Sun, Sunset, Moon];
+const icons = [Sunrise, Sun, Utensils, Moon];
 
-export default function DailyView({ report, date, onAdd, onEdit, onDelete }) {
+export default function DailyView({ report, date, onSave, onEdit, onDelete }) {
   const readings = report.readings || [];
+  const firstEmpty = SLOTS.find(
+    (slot) => !readings.some((r) => r.slot === slot.value),
+  )?.value;
+  const [slot, setSlot] = useState(firstEmpty || "morning");
+  const [value, setValue] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const input = useRef(null);
+  const [focusValue, setFocusValue] = useState(false);
+  useEffect(() => {
+    if (focusValue) {
+      input.current?.focus();
+      setFocusValue(false);
+    }
+  }, [focusValue]);
+  const id = useId();
+  const selectedReading = readings.find((r) => r.slot === slot);
+  async function submit(event) {
+    event.preventDefault();
+    if (pending) return;
+    const number = Number(value);
+    if (!value.trim()) {
+      setError("Please enter a glucose value.");
+      input.current.focus();
+      return;
+    }
+    if (!Number.isInteger(number) || number < 40 || number > 600) {
+      setError("Value must be a whole number between 40 and 600 mg/dl.");
+      input.current.focus();
+      return;
+    }
+    setError("");
+    setPending(true);
+    try {
+      await onSave({ date, slot, value: number });
+      setValue("");
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setPending(false);
+    }
+  }
   return (
-    <section aria-labelledby="daily-title">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Your daily log</p>
-          <h2 id="daily-title">Daily readings</h2>
-          <p className="muted">Four moments in your day. One simple record.</p>
-        </div>
-        <div
-          className="daily-progress"
-          aria-label={`${report.count} of 4 readings recorded`}
-        >
-          <span>
-            <strong>{report.count}</strong> / 4 recorded
-          </span>
-          <div className="completion-track" aria-hidden="true">
-            {SLOTS.map((slot) => (
-              <span
-                key={slot.value}
-                className={
-                  readings.some((r) => r.slot === slot.value) ? "complete" : ""
-                }
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="slot-grid">
-        {SLOTS.map((slot, index) => {
-          const reading = readings.find((item) => item.slot === slot.value);
-          const Icon = slotIcons[index];
-          return (
-            <article
-              className={`slot-card${reading ? " recorded" : ""}`}
-              key={slot.value}
-              aria-labelledby={`slot-${slot.value}`}
-            >
-              <div className="slot-topline">
-                <Icon size={23} strokeWidth={1.5} aria-hidden="true" />
-                <span className="slot-number">0{index + 1}</span>
-              </div>
-              <h3 id={`slot-${slot.value}`}>{slot.short}</h3>
-              <p className="muted slot-detail">
-                {index === 0 ? "Fasting reading" : "After your meal"}
+    <div className="journal-layout">
+      <section className="journal-entry" aria-labelledby={`${id}-title`}>
+        <h2 className="eyebrow" id={`${id}-title`}>
+          Add a reading
+        </h2>
+        <form onSubmit={submit} noValidate aria-busy={pending}>
+          <fieldset className="slot-picker" disabled={pending}>
+            <legend className="sr-only">Time slot</legend>
+            {SLOTS.map((item, index) => {
+              const reading = readings.find((r) => r.slot === item.value);
+              const Icon = icons[index];
+              return (
+                <label
+                  className={`slot-choice ${slot === item.value ? "selected" : ""}`}
+                  key={item.value}
+                >
+                  <input
+                    type="radio"
+                    name={`${id}-slot`}
+                    value={item.value}
+                    checked={slot === item.value}
+                    onChange={() => {
+                      setSlot(item.value);
+                      setError("");
+                      setValue("");
+                    }}
+                  />
+                  <span className="slot-icon">
+                    <Icon size={25} strokeWidth={1.5} aria-hidden="true" />
+                  </span>
+                  <span className="slot-copy">
+                    <strong>{item.label}</strong>
+                    <small>
+                      {reading
+                        ? `Recorded: ${reading.value} mg/dl`
+                        : "Not recorded"}
+                    </small>
+                  </span>
+                  {slot === item.value && (
+                    <Check
+                      className="slot-check"
+                      size={20}
+                      aria-hidden="true"
+                    />
+                  )}
+                </label>
+              );
+            })}
+          </fieldset>
+          {selectedReading ? (
+            <div className="recorded-message" role="status">
+              <p>
+                This slot already has a reading of{" "}
+                <strong>{selectedReading.value} mg/dl</strong>.
               </p>
-              {reading ? (
-                <>
-                  <p className="reading-value">
-                    {reading.value}
-                    <span>mg/dl</span>
-                  </p>
-                  <p className="reading-status">
-                    <Check size={14} aria-hidden="true" /> Recorded
-                  </p>
-                  <div className="slot-actions">
-                    <button
-                      type="button"
-                      className="button ghost"
-                      onClick={() => onEdit(reading)}
-                      aria-label={`Edit ${slot.label}`}
-                    >
-                      <Pencil size={15} aria-hidden="true" /> Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      onClick={() => onDelete(reading)}
-                      aria-label={`Delete ${slot.label}`}
-                      title={`Delete ${slot.label}`}
-                    >
-                      <Trash2 size={16} aria-hidden="true" />
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p
-                    className="reading-value empty-value"
-                    aria-label="Not recorded"
-                  >
-                    —<span>mg/dl</span>
-                  </p>
-                  <p className="reading-status muted">Not recorded yet</p>
-                  <div className="slot-actions">
-                    <button
-                      type="button"
-                      className="button secondary"
-                      onClick={() => onAdd(slot.value)}
-                      aria-label={`Add ${slot.label}`}
-                    >
-                      <Plus size={16} aria-hidden="true" /> Add reading
-                    </button>
-                  </div>
-                </>
+              <button
+                type="button"
+                className="button"
+                onClick={() => onEdit(selectedReading)}
+              >
+                Edit reading
+              </button>
+              <p className="field-hint">
+                Choose an unrecorded slot to add a new reading.
+              </p>
+            </div>
+          ) : (
+            <>
+              <label className="value-label" htmlFor={`${id}-value`}>
+                Glucose value
+              </label>
+              <div className="journal-value">
+                <input
+                  id={`${id}-value`}
+                  ref={input}
+                  type="number"
+                  inputMode="numeric"
+                  min="40"
+                  max="600"
+                  step="1"
+                  placeholder="Enter value"
+                  value={value}
+                  onChange={(event) => setValue(event.target.value)}
+                  disabled={pending}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}
+                />
+                <span>mg/dl</span>
+              </div>
+              <p className="field-hint" id={`${id}-hint`}>
+                Whole number from 40 to 600.
+              </p>
+              {error && (
+                <p className="form-error" id={`${id}-error`} role="alert">
+                  {error}
+                </p>
               )}
-            </article>
-          );
-        })}
-      </div>
-
-      <div className="daily-summary">
-        <div className="section-heading compact">
-          <div>
-            <h3>Day at a glance</h3>
-            <p className="muted">
-              {formatDate(date)} · {report.count}{" "}
-              {report.count === 1 ? "reading" : "readings"}
-            </p>
-          </div>
+              <div className="entry-actions">
+                <button className="button" disabled={pending}>
+                  {pending ? "Saving…" : "Save reading"}
+                </button>
+                <button
+                  className="button ghost"
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setValue("");
+                    setError("");
+                    input.current.focus();
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </form>
+      </section>
+      <section className="day-log" aria-labelledby={`${id}-day`}>
+        <h2 id={`${id}-day`}>Your day</h2>
+        <p className="day-count">{report.count} of 4 recorded</p>
+        <div className="reading-list">
+          {SLOTS.map((item, index) => {
+            const reading = readings.find((r) => r.slot === item.value);
+            const Icon = icons[index];
+            return (
+              <div className="reading-row" key={item.value}>
+                <span className="slot-icon">
+                  <Icon size={23} strokeWidth={1.5} aria-hidden="true" />
+                </span>
+                <strong className="reading-label">{item.label}</strong>
+                {reading ? (
+                  <>
+                    <span className="row-value">
+                      {reading.value} <small>mg/dl</small>
+                    </span>
+                    <div className="row-actions">
+                      <button
+                        className="text-button"
+                        onClick={() => onEdit(reading)}
+                        aria-label={`Edit ${item.label}`}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="icon-button delete-action"
+                        onClick={() => onDelete(reading)}
+                        aria-label={`Delete ${item.label}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    className="unrecorded"
+                    onClick={() => {
+                      setSlot(item.value);
+                      setValue("");
+                      setError("");
+                      setFocusValue(true);
+                    }}
+                  >
+                    Not recorded
+                    <span className="sr-only"> — add {item.label}</span>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
-        <dl className="stats-grid">
-          <div className="stat">
-            <dt>Average</dt>
-            <dd>
-              {average(report.average)}
-              <span>mg/dl</span>
-            </dd>
-          </div>
-          <div className="stat">
-            <dt>Highest</dt>
-            <dd>
-              {report.highest ?? "—"}
-              <span>mg/dl</span>
-            </dd>
-          </div>
-          <div className="stat">
-            <dt>Lowest</dt>
-            <dd>
-              {report.lowest ?? "—"}
-              <span>mg/dl</span>
-            </dd>
-          </div>
+        <dl className="day-stats">
+          {[
+            ["Average", average(report.average)],
+            ["Highest", report.highest ?? "—"],
+            ["Lowest", report.lowest ?? "—"],
+          ].map(([label, number]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{number}</dd>
+            </div>
+          ))}
         </dl>
-        {report.count === 0 && (
-          <p className="muted summary-note">
-            No readings for this day yet. Add your first reading to see your
-            daily summary.
+        <p className="summary-caption">
+          mg/dl · Based on {report.count}{" "}
+          {report.count === 1 ? "reading" : "readings"}.
+        </p>
+        {!report.count && (
+          <p className="muted">
+            Add your first reading to see your daily summary.
           </p>
         )}
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

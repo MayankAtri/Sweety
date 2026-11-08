@@ -26,15 +26,9 @@ const periods = [
 export default function ReportsView({ reports, trend }) {
   return (
     <section aria-labelledby="reports-title">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">The bigger picture</p>
-          <h2 id="reports-title">Your reports</h2>
-          <p className="muted">
-            A clear summary of the readings you’ve recorded.
-          </p>
-        </div>
-      </div>
+      <h2 id="reports-title" className="sr-only">
+        Your reports
+      </h2>
       <div className="report-grid">
         {periods.map(({ key, title, description, Icon }) => {
           const report = reports[key];

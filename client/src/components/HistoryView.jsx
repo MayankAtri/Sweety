@@ -20,8 +20,9 @@ export default function HistoryView({
     <section aria-labelledby="history-title" aria-busy={loading}>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Your record</p>
-          <h2 id="history-title">Reading history</h2>
+          <h2 id="history-title" className="sr-only">
+            Reading history
+          </h2>
           <p className="muted">
             All your readings, with the most recent day first.
           </p>

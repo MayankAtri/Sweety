@@ -4,9 +4,9 @@ A blood glucose tracker built with React, Node.js, Express and PostgreSQL. Patie
 
 **Current status:** React frontend and API implemented, integrated and tested. Desktop/mobile screenshots are included below. Local production preview is verified; no hosted deployment is claimed. This is an assignment prototype, not a clinical decision tool.
 
-![Sweety daily overview](docs/screenshots/overview.png)
+![Sweety daily overview](docs/screenshots/redesign/overview-desktop.jpg)
 
-[Reports](docs/screenshots/reports.png) · [Monthly chart](docs/screenshots/monthly-chart.png) · [Mobile overview](docs/screenshots/mobile-overview.png) · [Login](docs/screenshots/login.png)
+[Reports](docs/screenshots/redesign/reports-desktop.jpg) · [Monthly chart](docs/screenshots/monthly-chart.png) · [Mobile overview](docs/screenshots/redesign/overview-mobile.jpg) · [Login](docs/screenshots/redesign/auth-desktop.jpg)
 
 ## Requirements
 
@@ -122,7 +122,7 @@ The UI includes login/signup, demo autofill, four daily slots, add/edit dialogs,
 ```sh
 npm test          # 55 API/integration/security/data/foundation/trend tests
 npm run test:e2e   # full HTTP journey against a spawned API process
-npm run test:client # 10 helper + 21 React Testing Library form tests
+npm run test:client # 10 helper + 33 React Testing Library component tests
 npm run test:all   # all automated suites; also run in CI
 npm run build     # optimized React build; also run in CI
 npm run test:docker # smoke test against healthy localhost:8080 Docker stack
@@ -227,3 +227,7 @@ server/e2e/                    Full HTTP journeys using a spawned API process
 - With more time: password recovery/verification, configurable patient timezone, expired-session cleanup, production monitoring/backups, distributed rate limiting and repeatable multi-browser UI tests in CI.
 
 Read `spec.md`, `AGENTS.md`, and the latest appended records in `current_work.md` before continuing work.
+
+## Approved UI redesign
+
+The ivory/forest/citron journal design is implemented across authentication, Overview, Reports, History and dialogs. Overview includes inline reading entry and week/date navigation; narrow screens stack the journal and daily summary. See [design QA](design-qa.md), [research and references](docs/design-research/RESEARCH.md), and [test evidence](TEST_REPORT.md).

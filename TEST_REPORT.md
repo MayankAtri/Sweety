@@ -9,14 +9,14 @@ Verified 8 November 2026 (Asia/Kolkata). Scope: React frontend, Express API, Pos
 | API/integration/security/foundation | 55 passed | Auth, sessions, ownership, reading CRUD/validation/concurrency, reports, migration/seed, config, lifecycle |
 | HTTP E2E | 1 complete journey passed | Real spawned API process, cookie jar, signup → CRUD → reports → restart → isolation → logout/login |
 | Client helper regression | 10 passed | Credentials, JSON requests, cancellation during fetch/body read, network/server errors, empty responses, calendar validation and formatting |
-| React Testing Library form components | 21 passed | ReadingDialog validation/payloads/edit/conflict/pending/keyboard, AuthScreen signup/login/error/demo/password flows |
+| React Testing Library form components | 33 passed | ReadingDialog and AuthScreen regression plus inline journal validation/bounds/conflict/edit/pending and week-navigation boundaries |
 | Docker smoke | Passed locally and CI | Built nginx frontend, proxy/cookies, health, signup, CRUD, reports/trends, logout |
 | Production build | Passed | Optimized React/Vite bundle |
 | Dependency audit | Zero known vulnerabilities reported | npm installation audit |
 
-CI runs `npm run test:all` (87 tests) and `npm run build` against PostgreSQL 17 on every push/PR. A separate Docker job builds both images, starts all services, seeds and runs `npm run test:docker`. Both jobs passed for the optional-features implementation: https://github.com/MayankAtri/Sweety/actions/runs/42462443118 . The expanded frontend phase was locally verified against PostgreSQL 18. The preceding 50-test backend phase also passed on Docker PostgreSQL 17, including real database outage/recovery (health 200 → 503 → 200).
+CI runs `npm run test:all` (99 tests) and `npm run build` against PostgreSQL 17 on every push/PR. A separate Docker job builds both images, starts all services, seeds and runs `npm run test:docker`. Both jobs passed for the optional-features implementation: https://github.com/MayankAtri/Sweety/actions/runs/42462443118 . The expanded frontend phase was locally verified against PostgreSQL 18. The preceding 50-test backend phase also passed on Docker PostgreSQL 17, including real database outage/recovery (health 200 → 503 → 200).
 
-## Real-browser acceptance
+## Earlier pre-redesign real-browser acceptance
 
 Playwright CLI drove Chromium through the UI against the actual Express API and local PostgreSQL. Test accounts were synthetic. Captured screenshots use the explicitly seeded demo account. Tests ran on the Vite dev server, followed by a production-build journey on Vite preview.
 
@@ -104,3 +104,11 @@ A new HTTPS clone of public GitHub revision `c11ca6f` was tested in `/tmp/sweety
 - Separate Chromium session against the fresh Docker stack: demo login and expected daily statistics, registration, empty chart, single-point chart, add/edit/delete with exact chart-table values, reload persistence, invalid-value message, 390px layout without horizontal overflow and logout passed.
 
 Existing earlier browser coverage remains documented above; this final pass does not claim Safari/Firefox or physical-device testing. Screenshots satisfy the assignment's screenshot-or-recording requirement. No external submission or deployment was performed.
+
+## Approved redesign verification — 8 November 2026
+
+The 99-test suite was rerun against real PostgreSQL on port 55439: 55 API/database, 1 HTTP E2E, 10 client helpers and 33 RTL component tests. Production build passed. Rebuilt `sweety-bonus` Compose images and ran the Docker HTTP smoke through nginx on port 8080. This includes actual signup/cookies, reading CRUD, reports/trends and logout.
+
+New browser checks used Product Design's in-app browser at requested widths 320, 390, 768, 1024 and 1440. Verified mobile registration, inline creation (130), edit (145), refreshed daily/MTD values, single-point chart and exact data table, history, delete confirmation/Escape cancellation, reload persistence, logout/demo login, empty daily state, required-value error/focus, and previous-week/Today behavior. Captured console query returned no warning/error entries. Screenshots are in `docs/screenshots/redesign`; normalized approved-target comparisons and limitations are documented in `design-qa.md`.
+
+Earlier browser checks above are historical evidence, not claims that every fault-injection/pagination scenario was manually repeated after restyling. API/HTTP tests cover deletion, isolation, concurrency, pagination and date boundaries. Physical devices, Safari/Firefox, formal assistive-technology audit, text zoom and hosted HTTPS remain outside verified acceptance.

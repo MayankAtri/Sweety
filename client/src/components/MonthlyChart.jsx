@@ -94,7 +94,7 @@ export default function MonthlyChart({ trend }) {
                 accessibilityLayer
               >
                 <CartesianGrid
-                  stroke="#e3e6ec"
+                  stroke="#d9dece"
                   strokeDasharray="3 3"
                   vertical={false}
                 />
@@ -106,7 +106,7 @@ export default function MonthlyChart({ trend }) {
                   tickFormatter={(position) =>
                     String(Math.floor(position / 4) + 1)
                   }
-                  tick={{ fill: "#687180", fontSize: 12 }}
+                  tick={{ fill: "#58634f", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                   minTickGap={15}
@@ -117,7 +117,7 @@ export default function MonthlyChart({ trend }) {
                     Math.min(600, maximum + 20),
                   ]}
                   allowDecimals={false}
-                  tick={{ fill: "#687180", fontSize: 12 }}
+                  tick={{ fill: "#58634f", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                   width={52}
@@ -131,9 +131,9 @@ export default function MonthlyChart({ trend }) {
                   dataKey="value"
                   name="Glucose"
                   unit=" mg/dl"
-                  stroke="#002FA7"
+                  stroke="#183e25"
                   strokeWidth={2}
-                  dot={{ r: 3, fill: "#002FA7", strokeWidth: 0 }}
+                  dot={{ r: 3, fill: "#183e25", strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
                   connectNulls={false}
                   isAnimationActive={false}

@@ -1,11 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
-  Activity,
-  ArrowLeft,
-  ArrowRight,
-  CalendarDays,
   ChartNoAxesCombined,
   Check,
+  ChevronDown,
   Droplet,
   History,
   LayoutDashboard,
@@ -25,6 +22,7 @@ import {
 import AuthScreen from "./components/AuthScreen.jsx";
 import ReadingDialog from "./components/ReadingDialog.jsx";
 import DailyView from "./components/DailyView.jsx";
+import DateNavigation from "./components/DateNavigation.jsx";
 const ReportsView = lazy(() => import("./components/ReportsView.jsx"));
 import HistoryView from "./components/HistoryView.jsx";
 
@@ -213,16 +211,11 @@ export default function App() {
     setDate(value);
     setNotice("");
   }
-  function shiftDay(direction) {
-    const next = new Date(`${date}T12:00:00Z`);
-    next.setUTCDate(next.getUTCDate() + direction);
-    changeDate(next.toISOString().slice(0, 10));
-  }
   async function saveReading(body) {
     try {
       await api(
-        editing.reading ? `/readings/${editing.reading.id}` : "/readings",
-        { method: editing.reading ? "PUT" : "POST", body },
+        editing?.reading ? `/readings/${editing.reading.id}` : "/readings",
+        { method: editing?.reading ? "PUT" : "POST", body },
       );
       setEditing(null);
       setDate(body.date);
@@ -301,7 +294,7 @@ export default function App() {
       />
     );
   const title = {
-    daily: "Your daily overview",
+    daily: "A moment for your daily record.",
     reports: "A clearer picture",
     history: "Your reading history",
   }[view];
@@ -315,7 +308,7 @@ export default function App() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <aside className="sidebar">
+      <header className="topbar">
         <a
           href="#"
           className="brand"
@@ -329,7 +322,7 @@ export default function App() {
           </span>
           Sweety<span className="brand-dot">.</span>
         </a>
-        <p className="sidebar-caption">Your glucose journal</p>
+
         <nav aria-label="Main navigation">
           {navItems.map(([key, label, Icon]) => (
             <button
@@ -344,77 +337,83 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <Activity size={21} />
-            <p>One reading at a time.</p>
-            <span>A simple record of your everyday.</span>
-          </div>
-          <div className="account">
+        <details className="account-menu">
+          <summary aria-label={`Account menu for ${user.name}`}>
             <span className="avatar">
               {user.name.slice(0, 1).toUpperCase()}
             </span>
-            <div>
-              <strong>{user.name}</strong>
-              <span>{user.email}</span>
+            <span className="account-name">{user.name}</span>
+            <ChevronDown size={16} aria-hidden="true" />
+          </summary>
+          <div className="account-popover">
+            <div className="account">
+              <span className="avatar">
+                {user.name.slice(0, 1).toUpperCase()}
+              </span>
+              <div>
+                <strong>{user.name}</strong>
+                <span>{user.email}</span>
+              </div>
             </div>
+            <button
+              className="logout"
+              disabled={loggingOut}
+              onClick={async () => {
+                setLoggingOut(true);
+                setActionError("");
+                try {
+                  await api("/auth/logout", { method: "POST" });
+                  setUser(null);
+                  setResult(null);
+                  setNotice("You’ve been logged out.");
+                } catch (error) {
+                  setActionError(error.message);
+                } finally {
+                  setLoggingOut(false);
+                }
+              }}
+            >
+              <LogOut size={17} />
+              {loggingOut ? "Logging out…" : "Log out"}
+            </button>
           </div>
-          <button
-            className="logout"
-            disabled={loggingOut}
-            onClick={async () => {
-              setLoggingOut(true);
-              setActionError("");
-              try {
-                await api("/auth/logout", { method: "POST" });
-                setUser(null);
-                setResult(null);
-                setNotice("You’ve been logged out.");
-              } catch (error) {
-                setActionError(error.message);
-              } finally {
-                setLoggingOut(false);
-              }
-            }}
-          >
-            <LogOut size={17} />
-            {loggingOut ? "Logging out…" : "Log out"}
-          </button>
-        </div>
-      </aside>
+        </details>
+      </header>
       <main id="main" className="workspace">
         <header className="page-header">
           <div>
             <p className="eyebrow">
               {view === "daily"
-                ? `Welcome, ${user.name.split(" ")[0]}`
+                ? formatDate(date, { weekday: "long", month: "long" })
                 : "Your glucose journal"}
             </p>
             <h1>{title}</h1>
             <p className="muted">
               {view === "daily"
-                ? "Small check-ins. Everything in one place."
+                ? "Record the number shown on your glucose meter."
                 : view === "reports"
                   ? "Your readings, summarized over time."
                   : "Your readings, organized by date."}
             </p>
           </div>
-          <button
-            className="button"
-            onClick={() =>
-              onAdd(
-                SLOTS.find(
-                  (item) =>
-                    !data?.daily?.readings?.some(
-                      (reading) => reading.slot === item.value,
-                    ),
-                )?.value || "morning",
-              )
-            }
-          >
-            <Plus size={18} />
-            Add reading
-          </button>
+          {view !== "daily" && (
+            <button
+              className="button"
+              onClick={() =>
+                onAdd(
+                  SLOTS.find(
+                    (item) =>
+                      !data?.daily?.readings?.some(
+                        (reading) => reading.slot === item.value,
+                      ),
+                  )?.value || "morning",
+                )
+              }
+            >
+              <Plus size={18} />
+              Add reading
+            </button>
+          )}
         </header>
         {actionError && (
           <p className="form-error" role="alert">
@@ -435,53 +434,11 @@ export default function App() {
           </div>
         )}
         {view !== "history" && (
-          <div className="date-bar">
-            <div className="date-caption">
-              <CalendarDays size={19} />
-              <span>
-                {date === settings.today
-                  ? "Today"
-                  : formatDate(date, { weekday: "short" })}
-              </span>
-              {date === settings.today && <small>{formatDate(date)}</small>}
-            </div>
-            <div className="date-controls">
-              <button
-                className="icon-button"
-                aria-label="Previous day"
-                disabled={date === "0001-02-01"}
-                onClick={() => shiftDay(-1)}
-              >
-                <ArrowLeft size={17} />
-              </button>
-              <label className="sr-only" htmlFor="selected-date">
-                Report date
-              </label>
-              <input
-                id="selected-date"
-                type="date"
-                min="0001-02-01"
-                max={settings.today}
-                value={date}
-                onChange={(event) => changeDate(event.target.value)}
-              />
-              <button
-                className="icon-button"
-                aria-label="Next day"
-                disabled={date >= settings.today}
-                onClick={() => shiftDay(1)}
-              >
-                <ArrowRight size={17} />
-              </button>
-              <button
-                className="button ghost small"
-                disabled={date === settings.today}
-                onClick={() => changeDate(settings.today)}
-              >
-                Today
-              </button>
-            </div>
-          </div>
+          <DateNavigation
+            date={date}
+            today={settings.today}
+            onChange={changeDate}
+          />
         )}
         {dateError && (
           <p className="form-error" role="alert">
@@ -507,9 +464,10 @@ export default function App() {
           </div>
         ) : view === "daily" ? (
           <DailyView
+            key={`${user.id}/${date}/${version}`}
             report={data.daily}
             date={date}
-            onAdd={onAdd}
+            onSave={saveReading}
             onEdit={onEdit}
             onDelete={setDeleting}
           />
@@ -535,7 +493,9 @@ export default function App() {
         <footer className="workspace-footer">
           <span>
             <Droplet size={13} />
-            Sweety · Your personal glucose journal
+            {user.email === "demo@sweety.example"
+              ? "Demo account · Sample readings"
+              : "Sweety · Your private glucose journal"}
           </span>
           <span>Dates follow {settings.timeZone.replaceAll("_", " ")}</span>
         </footer>
