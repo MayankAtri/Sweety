@@ -37,3 +37,19 @@ Read spec.md and AGENTS.md before work. Append records; do not rewrite history. 
 - Checks: node --check passed for config.js, db.js, dates.js, validation.js, migrate.js and seed.js. Dependencies were not yet installed, so no migration or seed runtime claim is made here. Lead will run all integration and repeatability checks.
 - Agreed boundary: supported dates start at 0001-02-01 because January year 1 would require a year-zero previous-month report unsupported by PostgreSQL. Helper rejects earlier dates consistently; lead will document in spec/README.
 - Next: lead installs dependencies, runs migrations and seed twice, integrates API tests, reviews and pushes foundation milestone. No frontend, deployment, Git mutations or external account operations performed by this agent.
+
+## 2026-11-08 12:59 Asia/Kolkata — authentication agent integration review
+- Read-only reviewed auth routes, session middleware, app Origin/CORS/rate-limit/error middleware, runtime config, schema and integration tests. No implementation files modified; no Git actions.
+- No cookie/session security blocker found within the assignment's same-site deployment scope. Digest-only storage, expiry, rotation, HttpOnly/SameSite cookies, production Secure/HTTPS configuration, exact Origin rejection and parameterized auth queries are consistent.
+- Found one input-validation edge for lead follow-up: NUL characters in name or email pass current checks in routes/auth.js (lines 20/34) but PostgreSQL text rejects them, yielding 500 instead of a field-level 400. Suggested rejecting NUL and adding regression coverage. Passwords are hashed before database storage and do not share this text-column issue.
+- Verification: inspected the 17-test suite and lead-reported passing result; did not rerun tests or mutate database during this read-only review. Next: lead decides/fixes the NUL validation edge and completes final checks.
+
+## 2026-11-08 13:00 Asia/Kolkata — lead API integration and verification
+- Integrated Express app/startup with exact-origin CORS and browser-write protection, Helmet, bounded JSON, auth rate limiting, consistent errors, database-aware health and graceful shutdown.
+- Added server/test/api.test.js: 20 passing real-PostgreSQL tests covering auth, bcrypt/session storage, expiry/logout, validation, ownership, CRUD/conflicts, pagination, concurrent writes, report statistics/ranges, leap/year boundaries, null empty states, migrations/seed repeatability, bigint IDs and rate limiting.
+- Auth agent review identified NUL characters in names/emails reaching PostgreSQL and causing 500 errors. Lead rejected them with 400 and added regression cases; complete suite passes after fix.
+- npm install completed with zero audit vulnerabilities. npm run db:migrate and npm run db:seed succeeded. npm start and live HTTP demo login/report/logout passed; reports returned today count 2, MTD count 3, previous-month count 2. Docker Compose config validates; Docker runtime not tested because daemon is stopped.
+- Existing PostgreSQL on 5432 requires unknown credentials and was untouched. Created an isolated ignored .pgdata instance bound to 127.0.0.1:55439, role sweety_dev, databases sweety/sweety_test. Local ignored .env points here. This trust-auth instance is local development only. Do not commit either .env or .pgdata.
+- Public repository created: https://github.com/MayankAtri/Sweety . Planning d27defa and foundation d501565 already pushed. Foundation handoff entries describe parallel API work that is included in the next API milestone.
+- Added CI with PostgreSQL 17 service and complete README for setup/run/tests/API/security assumptions. Local tests used PostgreSQL 18. CI verification follows push.
+- Remaining scope: React frontend and browser QA/screenshots are deferred; no deployment. Lead will push API milestone, check CI, then finalize handoff/docs.
