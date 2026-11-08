@@ -89,3 +89,18 @@ The Docker stack is local HTTP with development cookie settings and an optimized
 - Secure cookie flags were asserted; no hosted HTTPS/browser environment was deployed.
 - Concurrency checks establish application invariants, not production capacity or penetration-test certification.
 - Browser screenshot/flow evidence is local/manual; CI covers API, HTTP E2E, client helper/RTL tests, frontend build and full-stack Docker smoke.
+
+## Final submission audit — 8 November 2026
+
+Three independent agents reviewed backend requirements, frontend behavior and submission artifacts. No required feature gaps or runtime defects were found. Fixed one documentation omission: the optional shell-only `APP_BASE_URL` smoke-test override is now listed in README and `.env.example`.
+
+A new HTTPS clone of public GitHub revision `c11ca6f` was tested in `/tmp/sweety-final-oVctqY`, with a newly created Compose project/volume (`sweety-final`) and PostgreSQL 17. No application files, dependencies or database data were copied from the working checkout. Docker layer caching remained enabled.
+
+- Clean `npm ci`: passed, zero audit vulnerabilities.
+- Compose build/start with automatic migrations: all three services healthy.
+- Documented Docker seed and local migration/seed commands: passed, including repeated seeding.
+- `npm run test:all` against fresh `sweety_test`: 55 API + 1 HTTP E2E + 10 helper + 21 RTL tests passed (87 total).
+- `npm run build` and `npm run test:docker`: passed.
+- Separate Chromium session against the fresh Docker stack: demo login and expected daily statistics, registration, empty chart, single-point chart, add/edit/delete with exact chart-table values, reload persistence, invalid-value message, 390px layout without horizontal overflow and logout passed.
+
+Existing earlier browser coverage remains documented above; this final pass does not claim Safari/Firefox or physical-device testing. Screenshots satisfy the assignment's screenshot-or-recording requirement. No external submission or deployment was performed.
