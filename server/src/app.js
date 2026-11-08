@@ -15,6 +15,11 @@ export function createApp() {
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet());
+  // Patient records and session identity should never be retained by HTTP caches.
+  app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
   // Cookie authentication is intended for same-site deployments. Reject foreign
   // browser origins before route handling, including authentication endpoints.
   app.use((req, res, next) => {
@@ -62,6 +67,17 @@ export function createApp() {
     }
     if (err.type === 'entity.too.large') {
       return res.status(413).json({ error: { code: 'BODY_TOO_LARGE', message: 'Request body is too large.' } });
+    }
+    if (err.type === 'charset.unsupported' || err.type === 'encoding.unsupported') {
+      return res.status(415).json({ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Please send JSON with a supported charset and content encoding.' } });
+    }
+    if (err instanceof URIError && err.status === 400) {
+      return res.status(400).json({ error: { code: 'INVALID_URL', message: 'Please send a valid URL.' } });
+    }
+    // Body-parser can also reject corrupt compressed input or a truncated body.
+    // Return a fixed message instead of exposing parser details or raw input.
+    if (err.status === 400 && err.expose === true) {
+      return res.status(400).json({ error: { code: 'INVALID_BODY', message: 'The request body could not be read.' } });
     }
     // Log only error type/code: request bodies and session tokens may be sensitive.
     console.error('Unhandled request error', { name: err.name, code: err.code });

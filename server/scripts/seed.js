@@ -8,8 +8,9 @@ if (config.nodeEnv === 'production') {
   await pool.end();
   process.exitCode = 1;
 } else {
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
     const hash = await bcrypt.hash('SweetyDemo123!', 12);
     const user = await client.query(`INSERT INTO users(name,email,password_hash)
@@ -34,11 +35,11 @@ if (config.nodeEnv === 'production') {
     await client.query('COMMIT');
     console.log('Demo data ready: demo@sweety.example / SweetyDemo123! (development only). Existing account passwords are unchanged.');
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (client) await client.query('ROLLBACK');
     console.error('Seed failed:', error.code || error.name);
     process.exitCode = 1;
   } finally {
-    client.release();
+    client?.release();
     await pool.end();
   }
 }
