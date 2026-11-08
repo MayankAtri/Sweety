@@ -79,12 +79,14 @@ There is **no client command yet**: React work is the next phase. `CLIENT_ORIGIN
 ## Test
 
 ```sh
-npm test
+npm test          # 49 integration/security/data/foundation tests
+npm run test:e2e # full HTTP journey against a spawned API process
+npm run test:all # both suites; also run in CI
 ```
 
 Tests load `TEST_DATABASE_URL`, apply migrations and **truncate users/readings/sessions in that database**. They refuse to run without an explicit test database name ending in `_test`. Never point it at valuable data. Tests use real PostgreSQL and Supertest with an in-process Express server, not mocked SQL; no separately running API is needed.
 
-Coverage includes account validation and bcrypt storage, cookie flags, hashed sessions, expiry/logout, authorization, browser-origin rejection, malformed JSON, glucose/date/slot validation, CRUD, duplicates and daily limits, concurrent requests, pagination, report arithmetic and calendar boundaries, empty states, database constraints, exact bigint IDs, and repeatable migrations/seeding. GitHub Actions runs this suite with PostgreSQL 17 on every push and pull request.
+Coverage includes account validation and bcrypt storage, cookie flags, hashed sessions, expiry/logout, authorization, browser-origin rejection, malformed JSON, glucose/date/slot validation, CRUD, duplicates and daily limits, concurrent requests, pagination, report arithmetic and calendar boundaries, empty states, database constraints, exact bigint IDs, and repeatable migrations/seeding. GitHub Actions runs both suites with PostgreSQL 17 on every push and pull request. The E2E test starts the real API entrypoint on an available TCP port, uses HTTP requests with a cookie jar, and verifies registration, CRUD, reports, process-restart persistence, isolation, login and logout. This is API E2E coverage; it is not browser/UI acceptance. See [TEST_REPORT.md](TEST_REPORT.md) for the verification matrix and limitations.
 
 ## API
 
@@ -113,7 +115,7 @@ Errors have a consistent shape:
 {"error":{"code":"DUPLICATE_SLOT","message":"You already have an After lunch reading for this date."}}
 ```
 
-Common statuses: 400 invalid input, 401 login required, 403 disallowed browser origin, 404 missing or other user's record, 409 conflict, 413 oversized body, 429 too many auth attempts, 500 unexpected error. A full date returns the daily-limit error before duplicate-slot errors on create.
+Common statuses: 400 invalid input, 401 login required, 403 disallowed browser origin, 404 missing or other user's record, 409 conflict, 413 oversized body, 415 unsupported charset/encoding, 429 too many auth attempts, 500 unexpected error. A full date returns the daily-limit error before duplicate-slot errors on create.
 
 ### Try it with curl
 
@@ -150,7 +152,8 @@ server/src/routes/             Authentication, readings and reports
 server/src/{config,db,...}.js   Configuration, pool, date/validation helpers
 server/migrations/             Versioned SQL schema
 server/scripts/                Migration and demo seed commands
-server/test/                   Real PostgreSQL integration tests
+server/test/                   Real PostgreSQL integration/security/foundation tests
+server/e2e/                    Full HTTP journeys using a spawned API process
 .github/workflows/ci.yml        Continuous integration
 ```
 
@@ -161,7 +164,7 @@ server/test/                   Real PostgreSQL integration tests
 - Email is normalized to lowercase; names are 1–100 characters; passwords are at least 8 characters and at most 72 UTF-8 bytes, respecting bcrypt's limit.
 - Four enumerated slots plus a unique `(user_id,date,slot)` constraint enforce the daily maximum. Mutations lock the owning user row so concurrency produces clear conflict messages. Report windows are calculated in UTC as calendar arithmetic, without local daylight-saving shifts.
 - Sessions expire after seven days. Logout revokes the current session; login rotates the current browser session. Password reset, email verification, session management UI and expired-session cleanup are future work.
-- Browser requests must match `CLIENT_ORIGIN`; cross-site browser writes are rejected. Requests without Origin are supported for curl/non-browser clients. Cookies use HttpOnly/SameSite=Lax and Secure in production. Production requires an HTTPS frontend origin and same-site frontend/API hosting. Configure a known reverse proxy explicitly before deploying behind one; blindly trusting forwarded IP headers is unsafe.
+- Browser requests must match `CLIENT_ORIGIN`; cross-site browser writes are rejected. Requests without Origin are supported for curl/non-browser clients. API responses use Cache-Control: no-store. Cookies use HttpOnly/SameSite=Lax and Secure in production. Production requires an HTTPS frontend origin and same-site frontend/API hosting. Configure a known reverse proxy explicitly before deploying behind one; blindly trusting forwarded IP headers is unsafe.
 - Authentication rate limiting is per-process/in-memory (30 failed attempts per 15 minutes per IP); distributed deployments need shared storage. No deployment is claimed.
 - Remaining required work: React UI, browser validation/error states, accessible responsive layouts, screenshots or recording and final assignment acceptance. Optional charts/Redis/jobs/doctor role remain deferred.
 - With more time: password recovery/verification, configurable patient timezone, expired-session cleanup, production monitoring/backups, distributed rate limiting and frontend interaction tests.

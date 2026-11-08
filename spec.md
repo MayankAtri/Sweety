@@ -48,7 +48,7 @@ All paths below start with `/api`. JSON errors: `{ "error": { "code": "...", "me
 - DELETE /readings/:id: 204.
 - GET /reports?date=YYYY-MM-DD: {daily,monthToDate,monthly}. Each report has startDate,endDate,highest,lowest,average,count; daily also has readings.
 Public user: {id,name,email}; reading: {id,date,slot,value,createdAt,updatedAt}. IDs serialized consistently as strings.
-Status conventions: 400 input errors, 401 unauthenticated, 403 disallowed browser origin, 404 missing resource, 409 duplicate email/reading or full day, 429 rate limit, 500 unexpected server error.
+Status conventions: 400 input errors, 401 unauthenticated, 403 disallowed browser origin, 404 missing resource, 409 duplicate email/reading or full day, 413 oversized body, 415 unsupported charset/encoding, 429 rate limit, 500 unexpected server error.
 
 ## Architecture and data
 Use npm workspace `server`, ESM JavaScript, Node 22+. Keep app creation separate from listening for testability. Use pg and parameterized SQL; explicit versioned SQL migrations. Runtime config through environment, validate at startup. Database constraints for ownership, integer range, slots and uniqueness. Use a transaction with a per-user row lock for writes to prevent daily-limit races. SQL date columns are serialized as YYYY-MM-DD, independent of host timezone.
