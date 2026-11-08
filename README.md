@@ -4,9 +4,11 @@ A blood glucose tracker built with React, Node.js, Express and PostgreSQL. Patie
 
 **Current status:** React frontend and API implemented, integrated and tested. Desktop/mobile screenshots are included below. Local production preview is verified; no hosted deployment is claimed. This is an assignment prototype, not a clinical decision tool.
 
-![Sweety daily overview](docs/screenshots/redesign/overview-desktop.jpg)
+![Sweety daily overview](docs/screenshots/submission/03-overview.jpg)
 
-[Reports](docs/screenshots/redesign/reports-desktop.jpg) · [Monthly chart](docs/screenshots/monthly-chart.png) · [Mobile overview](docs/screenshots/redesign/overview-mobile.jpg) · [Login](docs/screenshots/redesign/auth-desktop.jpg)
+[Reports](docs/screenshots/submission/06-reports.jpg) · [Monthly chart](docs/screenshots/submission/07-chart-data.jpg) · [Mobile overview](docs/screenshots/submission/11-overview-mobile.jpg) · [Login](docs/screenshots/submission/01-login.jpg)
+
+**For reviewers:** [Submission checklist and walkthrough](SUBMISSION.md) · [Screenshot gallery](docs/screenshots/submission/README.md) · [Test report](TEST_REPORT.md) · [CI](https://github.com/MayankAtri/Sweety/actions)
 
 ## Requirements
 
@@ -52,6 +54,10 @@ The API and scripts load `.env` from the repository root, regardless of working 
 | `PORT` | API port; default `3001` |
 | `CLIENT_ORIGIN` | Exact permitted browser origin, no trailing slash; default `http://localhost:5173` |
 | `APP_TIMEZONE` | IANA time zone used to determine today; default `Asia/Kolkata` |
+| `REDIS_URL` | Optional API cache; required by the reminder worker. Local example: `redis://localhost:56379` |
+| `TEST_REDIS_URL` | Dedicated disposable Redis for tests; example: `redis://localhost:56379/15` |
+| `CACHE_TTL_SECONDS` | Internal report cache TTL; default `300`, range `1–3600` |
+| `APP_BASE_URL` | Docker smoke target; default `http://localhost:8080`. Shell override only |
 
 No JWT/session secret is required: sessions use cryptographically random opaque tokens and only their SHA-256 digests are stored in PostgreSQL. Never commit your `.env`.
 
@@ -84,11 +90,18 @@ npm run db:seed
 
 Migrations are versioned SQL, transactionally applied once and recorded in `schema_migrations`. Concurrent migration commands are serialized by an advisory lock. Run migrations before starting the local API. The Docker entrypoint explicitly runs the same migration command before API startup.
 
-### Demo account
+### Demo accounts
 
-After seeding, log in with **demo@sweety.example** / **SweetyDemo123!**. This is an intentionally public development account. The seed is blocked in production and adds samples for today, the current month and the previous month. Rerunning on the same day does not duplicate records or overwrite an existing account password/reading. New days may add new sample dates.
+| Role | Email | Password |
+| --- | --- | --- |
+| Patient | `demo@sweety.example` | `SweetyDemo123!` |
+| Doctor | `doctor@sweety.example` | `SweetyDoctor123!` |
+
+The doctor is assigned to the demo patient. These are intentionally public development accounts. The seed is blocked in production and adds samples for today, the current month and the previous month. Rerunning on the same day does not duplicate records or overwrite an existing account password/reading. New days may add new sample dates.
 
 ## Run
+
+For Redis-enabled local development, start the [local Redis instance](#redis-report-caching) first. Alternatively, leave `REDIS_URL` empty to run the API without caching; the reminder worker requires Redis.
 
 ```sh
 npm run dev        # Node watch mode
@@ -119,18 +132,27 @@ The UI includes login/signup, demo autofill, four daily slots, add/edit dialogs,
 
 ## Test
 
+Start PostgreSQL and create the dedicated `_test` database as above. Also start a disposable Redis instance for cache and job tests:
+
 ```sh
-npm test          # real PostgreSQL + Redis integration/security/job tests
+docker run -d --name sweety-dev-redis -p 127.0.0.1:56379:6379 redis:7-alpine
+# Set TEST_REDIS_URL=redis://localhost:56379/15 in .env
+```
+
+If this container already exists, use `docker start sweety-dev-redis`. The same local Redis can support the development API on database 0 via the example `REDIS_URL`; tests use database 15. Clear `REDIS_URL` for the outer test runner as shown, overriding both exported and `.env` values. Cache tests manage their own connection through `TEST_REDIS_URL`.
+
+```sh
+REDIS_URL= npm test # real PostgreSQL + Redis integration/security/job tests
 npm run test:e2e   # full HTTP journey against a spawned API process
 npm run test:client # 10 helper + 42 React Testing Library component tests
-npm run test:all   # all automated suites; also run in CI
+REDIS_URL= npm run test:all # all automated suites; also run in CI
 npm run build     # optimized React build; also run in CI
 npm run test:docker # smoke test against seeded localhost:8080 Docker stack
 ```
 
 Tests load `TEST_DATABASE_URL` and `TEST_REDIS_URL`, apply migrations and **truncate users/readings/sessions in that database**. They refuse to run without an explicit test database name ending in `_test`. Never point it at valuable data. Tests use real PostgreSQL and Supertest with an in-process Express server, not mocked SQL; no separately running API is needed.
 
-Coverage includes account validation and bcrypt storage, cookie flags, hashed sessions, expiry/logout, authorization, browser-origin rejection, malformed JSON, glucose/date/slot validation, CRUD, duplicates and daily limits, concurrent requests, pagination, report arithmetic and calendar boundaries, empty states, database constraints, exact bigint IDs, and repeatable migrations/seeding. GitHub Actions runs all suites and the React build with PostgreSQL 17 and Redis 7 on every push/PR, plus an independent full Docker build/start/seed/smoke job. RTL uses jsdom with explicit dialog lifecycle shims; actual modality remains covered by browser checks. The E2E test starts the real API entrypoint on an available TCP port, uses HTTP requests with a cookie jar, and verifies registration, CRUD, reports, process-restart persistence, isolation, login and logout. The automated E2E script covers HTTP journeys. Chromium UI journeys were separately exercised through Playwright CLI against real PostgreSQL, including the optimized build; those interactive checks are documented rather than claimed as CI browser tests. See [TEST_REPORT.md](TEST_REPORT.md) for the verification matrix and limitations.
+Coverage includes account validation and bcrypt storage, cookie flags, hashed sessions, expiry/logout, authorization, browser-origin rejection, malformed JSON, glucose/date/slot validation, CRUD, duplicates and daily limits, concurrent requests, pagination, report arithmetic and calendar boundaries, empty states, database constraints, exact bigint IDs, and repeatable migrations/seeding. GitHub Actions runs all suites and the React build with PostgreSQL 17 and Redis 7 on every push/PR, plus an independent full Docker build/start/seed/smoke job. RTL uses jsdom with explicit dialog lifecycle shims; actual modality remains covered by browser checks. The E2E test starts the real API entrypoint on an available TCP port, uses HTTP requests with a cookie jar, and verifies registration, CRUD, reports, process-restart persistence, isolation, login and logout. The automated E2E script covers HTTP journeys. Browser UI journeys were separately exercised through Playwright CLI and the in-app browser against real PostgreSQL, including the optimized build; those interactive checks are documented rather than claimed as CI browser tests. See [TEST_REPORT.md](TEST_REPORT.md) for the verification matrix and limitations.
 
 The Docker smoke test defaults to `http://localhost:8080`. To check another local stack, run `APP_BASE_URL=http://localhost:8081 npm run test:docker`. This optional variable must be passed in the shell; the smoke script does not load `.env`.
 
@@ -156,6 +178,9 @@ Requests and responses use JSON. Authenticated endpoints use the `sweety_session
 | DELETE | `/api/readings/:id` | — | 204 |
 | GET | `/api/trends` | Required `date` | 200 `{startDate,endDate,readings}` in ascending date/slot order |
 | GET | `/api/reports` | Required `date` | 200 `{daily,monthToDate,monthly}` |
+| GET | `/api/doctor/patients` | Optional `page=1`, `limit=12` | 200 `{patients,page,limit,total}` |
+| GET | `/api/doctor/patients/:patientId/reports` | Required `date`; assigned patient only | 200 `{daily,monthToDate,monthly}` |
+| GET | `/api/doctor/patients/:patientId/trends` | Required `date`; assigned patient only | 200 `{startDate,endDate,readings}` |
 
 Slots, in display order: `morning` (Morning (fasting)), `after_breakfast`, `after_lunch`, `after_dinner`.
 
@@ -167,7 +192,7 @@ Errors have a consistent shape:
 {"error":{"code":"DUPLICATE_SLOT","message":"You already have an After lunch reading for this date."}}
 ```
 
-Common statuses: 400 invalid input, 401 login required, 403 disallowed browser origin, 404 missing or other user's record, 409 conflict, 413 oversized body, 415 unsupported charset/encoding, 429 too many auth attempts, 500 unexpected error. A full date returns the daily-limit error before duplicate-slot errors on create.
+Common statuses: 400 invalid input, 401 login required, 403 disallowed browser origin or role, 404 missing or other user's record, 409 conflict, 413 oversized body, 415 unsupported charset/encoding, 429 too many auth attempts, 500 unexpected error. A full date returns the daily-limit error before duplicate-slot errors on create.
 
 ### Try it with curl
 
@@ -234,7 +259,7 @@ The ivory/forest/citron journal design is implemented across authentication, Ove
 
 ## Redis report caching
 
-Set `REDIS_URL` to enable internal report and trend caching (Compose supplies it). Without it, the API reads PostgreSQL directly. `CACHE_TTL_SECONDS` defaults to300, accepts1–3600. Keys include database namespace, patient, report type, date and a PostgreSQL reading revision. A trigger changes the revision atomically for inserts/edits/deletes, moved dates and direct seed writes. Old entries expire; they cannot be reused after a committed mutation. Each hit still checks the revision in PostgreSQL. Redis failure falls back to live PostgreSQL; browser responses remain `Cache-Control: no-store`. Doctor assignment is checked before cache access.
+Set `REDIS_URL` to enable internal report and trend caching (Compose supplies it). Without it, the API reads PostgreSQL directly. `CACHE_TTL_SECONDS` defaults to 300, accepts 1–3600. Keys include database namespace, patient, report type, date and a PostgreSQL reading revision. A trigger changes the revision atomically for inserts/edits/deletes, moved dates and direct seed writes. Old entries expire; they cannot be reused after a committed mutation. Each hit still checks the revision in PostgreSQL. Redis failure falls back to live PostgreSQL; browser responses remain `Cache-Control: no-store`. Doctor assignment is checked before cache access.
 
 For native development/tests, start a dedicated Redis instance, for example:
 
@@ -244,17 +269,17 @@ docker run -d --name sweety-dev-redis -p 127.0.0.1:56379:6379 redis:7-alpine
 # In .env: TEST_REDIS_URL=redis://localhost:56379/15
 ```
 
-Use a disposable Redis endpoint/database for tests. Do not export `REDIS_URL` globally for the test suite; its Redis integration file initializes and closes its own cache using `TEST_REDIS_URL`. The HTTP E2E child process also uses `TEST_REDIS_URL`.
+Use a disposable Redis endpoint/database for tests. Run `REDIS_URL= npm run test:all` to override any app cache URL from the shell or `.env`; its Redis integration file initializes and closes its own cache using `TEST_REDIS_URL`. The HTTP E2E child process also uses `TEST_REDIS_URL`.
 
 ## Reminder worker (logging only)
 
-Compose starts the worker automatically. Native development uses `npm run worker` in a separate terminal with `DATABASE_URL` and `REDIS_URL` configured. BullMQ maintains one daily08:00 scheduler in `APP_TIMEZONE`. It logs missing daily slots for patient accounts; doctors and complete days are excluded. No email, SMS or push notification is sent.
+Compose starts the worker automatically. Native development uses `npm run worker` in a separate terminal with `DATABASE_URL` and `REDIS_URL` configured. BullMQ maintains one daily 08:00 scheduler in `APP_TIMEZONE`. It logs missing daily slots for patient accounts; doctors and complete days are excluded. No email, SMS or push notification is sent.
 
-The PostgreSQL `reminder_logs` table has a unique patient/date constraint, so retries and multiple workers cannot duplicate the durable log. Jobs retry up to3 times with exponential backoff. A delayed worker uses its current local calendar date; retries pin that date before the side effect. Redis has a persistent Compose volume and uses `noeviction` for queue reliability. Use separate Redis instances/databases for separate app environments.
+The PostgreSQL `reminder_logs` table has a unique patient/date constraint, so retries and multiple workers cannot duplicate the durable log. Jobs retry up to 3 times with exponential backoff. A delayed worker uses its current local calendar date; retries pin that date before the side effect. Redis has a persistent Compose volume and uses `noeviction` for queue reliability. Use separate Redis instances/databases for separate app environments.
 
 ```sh
 docker compose exec api node server/scripts/reminders.js enqueue
-# Enqueues and waits up to20s for a real worker result; rerunning logs0 duplicates.
+# Enqueues and waits up to 20s for a real worker result; rerunning logs 0 duplicates.
 docker compose exec api node server/scripts/reminders.js logs
 docker compose logs worker
 # Native equivalents:
@@ -266,7 +291,7 @@ Redis-unavailable startup/CLI operations fail within a bounded interval; an alre
 
 ## Assigned-patient doctor role
 
-The development seed provides **doctor@sweety.example / SweetyDoctor123!**, assigned to **demo@sweety.example**. Log in normally; the doctor workspace offers assigned patients, date navigation, four-slot daily readings, summary reports and chart/data table. There are no reading mutation controls. Doctors cannot use patient endpoints; patients cannot access doctor endpoints. Unassigned/revoked patient IDs return404, including when a report is cached.
+The development seed provides **doctor@sweety.example / SweetyDoctor123!**, assigned to **demo@sweety.example**. Log in normally; the doctor workspace offers assigned patients, date navigation, four-slot daily readings, summary reports and chart/data table. There are no reading mutation controls. Doctors cannot use patient endpoints; patients cannot access doctor endpoints. Unassigned/revoked patient IDs return 404, including when a report is cached.
 
 Public signup always creates a patient and rejects a supplied role. An operator must explicitly provision an empty registered account as a doctor, then assign patients:
 
@@ -282,4 +307,4 @@ Promotion refuses accounts with readings or existing patient assignments and rev
 
 New endpoints: `GET /api/doctor/patients?page=1&limit=12`, `GET /api/doctor/patients/:patientId/reports?date=YYYY-MM-DD`, and the corresponding `/trends` endpoint. Public user responses include `role`. Doctor patient-list pages contain `{patients,page,limit,total}`.
 
-[Doctor desktop](docs/screenshots/bonuses/doctor-desktop.jpg) · [Doctor mobile](docs/screenshots/bonuses/doctor-mobile.jpg) · [Doctor chart](docs/screenshots/bonuses/doctor-chart.jpg)
+[Doctor desktop](docs/screenshots/submission/08-doctor-desktop.jpg) · [Doctor mobile](docs/screenshots/submission/10-doctor-mobile.jpg) · [Doctor chart](docs/screenshots/bonuses/doctor-chart.jpg)
