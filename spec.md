@@ -47,6 +47,7 @@ All paths below start with `/api`. JSON errors: `{ "error": { "code": "...", "me
 - POST /readings: {date,slot,value}; 201 {reading}.
 - PUT /readings/:id: {date,slot,value}; 200 {reading}.
 - DELETE /readings/:id: 204.
+- GET /trends?date=YYYY-MM-DD: authenticated {startDate,endDate,readings}; selected month through selected date, all own readings in date/slot order, maximum124. Missing readings remain gaps in the chart.
 - GET /reports?date=YYYY-MM-DD: {daily,monthToDate,monthly}. Each report has startDate,endDate,highest,lowest,average,count; daily also has readings.
 Public user: {id,name,email}; reading: {id,date,slot,value,createdAt,updatedAt}. IDs serialized consistently as strings.
 Status conventions: 400 input errors, 401 unauthenticated, 403 disallowed browser origin, 404 missing resource, 409 duplicate email/reading or full day, 413 oversized body, 415 unsupported charset/encoding, 429 rate limit, 500 unexpected server error.
@@ -73,7 +74,7 @@ Cookie auth: protect browser writes by checking Origin against configured CLIENT
 - CI runs tests with a PostgreSQL service.
 
 ## Optional bonuses
-Pagination (included in API design), Docker Compose for PostgreSQL, charts, reading-form frontend tests, Redis invalidation, BullMQ reminder logging, assigned-patient doctor role. Only pagination and PostgreSQL Compose are in current phase; other bonuses deferred.
+Pagination (included in API design), Docker Compose for PostgreSQL, charts, reading-form frontend tests, Redis invalidation, BullMQ reminder logging, assigned-patient doctor role. Completed/authorized bonuses: pagination, full-stack Docker Compose, monthly line chart and React Testing Library form tests. Redis, BullMQ and doctor role remain deferred by the user’s explicit selection.
 
 ## Frontend phase (authorized 8 November 2026)
 React login/signup screens, responsive dashboard, date selector, four slot controls, add/edit forms, delete confirmation, daily/MTD/previous-month reports, loading/error/empty states, accessible labels and keyboard controls. Clear field errors. Never fabricate patient records. Visual direction proposed: restrained white/blue layout with four visible daily slots.

@@ -6,13 +6,15 @@ Verified 8 November 2026 (Asia/Kolkata). Scope: React frontend, Express API, Pos
 
 | Suite | Result | Coverage |
 | --- | --- | --- |
-| API/integration/security/foundation | 51 passed | Auth, sessions, ownership, reading CRUD/validation/concurrency, reports, migration/seed, config, lifecycle |
+| API/integration/security/foundation | 55 passed | Auth, sessions, ownership, reading CRUD/validation/concurrency, reports, migration/seed, config, lifecycle |
 | HTTP E2E | 1 complete journey passed | Real spawned API process, cookie jar, signup → CRUD → reports → restart → isolation → logout/login |
 | Client helper regression | 10 passed | Credentials, JSON requests, cancellation during fetch/body read, network/server errors, empty responses, calendar validation and formatting |
+| React Testing Library form components | 21 passed | ReadingDialog validation/payloads/edit/conflict/pending/keyboard, AuthScreen signup/login/error/demo/password flows |
+| Docker smoke | Passed locally and CI | Built nginx frontend, proxy/cookies, health, signup, CRUD, reports/trends, logout |
 | Production build | Passed | Optimized React/Vite bundle |
 | Dependency audit | Zero known vulnerabilities reported | npm installation audit |
 
-CI runs `npm run test:all` and `npm run build` against PostgreSQL 17 on every push/PR. The expanded frontend phase was locally verified against PostgreSQL 18. The preceding 50-test backend phase also passed on Docker PostgreSQL 17, including real database outage/recovery (health 200 → 503 → 200).
+CI runs `npm run test:all` (87 tests) and `npm run build` against PostgreSQL 17 on every push/PR. A separate Docker job builds both images, starts all services, seeds and runs `npm run test:docker`. Both jobs passed for the optional-features implementation: https://github.com/MayankAtri/Sweety/actions/runs/42462443118 . The expanded frontend phase was locally verified against PostgreSQL 18. The preceding 50-test backend phase also passed on Docker PostgreSQL 17, including real database outage/recovery (health 200 → 503 → 200).
 
 ## Real-browser acceptance
 
@@ -40,6 +42,16 @@ Playwright CLI drove Chromium through the UI against the actual Express API and 
 | Production build | Reload/session restore, actual login, create/edit/delete, reports/history and logout; desktop/mobile screenshots; no uncaught page errors during capture journey |
 
 Deliberately induced 401/409 responses and aborted network requests appeared as expected browser network errors. They are not presented as application crashes. Browser testing was performed interactively using Playwright CLI; it is **not** an unattended browser suite in GitHub Actions.
+
+## Optional additions acceptance
+
+- Monthly trends API: four real PostgreSQL tests cover authentication, invalid/future dates, selected-month boundaries, per-user isolation, ordered slots, exact bigint IDs, empty/single results and all 124 readings in a full 31-day month.
+- Chromium on the Docker URL verified three actual demo chart points, exact data-table rows, correct date/slot/value tooltip, 390px mobile sizing, empty state, single point, create/edit/delete refresh and correct gaps. Screenshot uses only demo data: [monthly chart](docs/screenshots/monthly-chart.png).
+- Reports/chart code is lazy-loaded; the main bundle stays approximately263KB minified and the chart/report chunk approximately381KB. The chart does not add fabricated readings or clinical thresholds.
+- 21 RTL form tests pass under Vitest/jsdom. jsdom dialog lifecycle shims are explicitly test-only; native focus behavior remains covered by Chromium acceptance.
+- Initial Vitest3 dependencies produced known audit findings. Patched Vitest4.1.12 is now installed and `npm audit` reports zero vulnerabilities. An npm10 peer-resolver bug was worked around using ephemeral npm11; clean npm ci inside Docker and CI passed.
+- Full-stack Compose was built from its allowlisted context. PostgreSQL, API and nginx became healthy; migrations ran automatically and manual demo seeding worked. HTTP cookie login and CRUD/trends worked through nginx at localhost:8080.
+- After full `docker compose down` and `up --wait` without deleting the named volume, browser reload retained the account, session and125 mg/dl test reading. No existing local project database was reset.
 
 ## Fixes found during frontend work
 
@@ -70,8 +82,10 @@ Screenshots: [overview](docs/screenshots/overview.png), [reports](docs/screensho
 
 ## Limits
 
+The Docker stack is local HTTP with development cookie settings and an optimized frontend. It is not a production HTTPS deployment.
+
 - Chromium was exercised; Safari, Firefox and physical mobile devices were not tested.
 - Keyboard semantics and responsive layout were checked, but no formal screen-reader audit is claimed.
 - Secure cookie flags were asserted; no hosted HTTPS/browser environment was deployed.
 - Concurrency checks establish application invariants, not production capacity or penetration-test certification.
-- Browser screenshot/flow evidence is local/manual; CI covers API, HTTP E2E, client helper tests and build.
+- Browser screenshot/flow evidence is local/manual; CI covers API, HTTP E2E, client helper/RTL tests, frontend build and full-stack Docker smoke.
