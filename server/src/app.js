@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
 import { config } from './config.js';
+import { today } from './dates.js';
 import { pool } from './db.js';
 import { AppError } from './errors.js';
 import { requireAuth } from './auth.js';
@@ -35,6 +36,10 @@ export function createApp() {
   app.use(cors({ origin: config.clientOrigin, credentials: true }));
   app.use(express.json({ limit: '16kb' }));
   app.use(cookieParser());
+  // Date limits are owned by the server timezone, including for browser clients.
+  app.get('/api/config', (req, res) => {
+    res.json({ timeZone: config.appTimezone, today: today() });
+  });
   app.get('/api/health', async (req, res) => {
     try {
       await pool.query('SELECT 1');

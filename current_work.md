@@ -98,3 +98,30 @@ Read spec.md and AGENTS.md before work. Append records; do not rewrite history. 
 - Added TEST_REPORT.md with feature matrix, reproduced fixes, commands, environments and explicit UI/HTTPS/load-test limitations. Updated README with test:e2e/test:all and error/cache contracts; spec now includes 413/415 client errors.
 - Refreshed owned local API on port 3001 to run the patched code. Existing isolated PostgreSQL remains on 55439. Stopped/removed only owned sweety-qa Compose container/network after verification; its test volume is retained. Subagent test DBs are disposable and isolated from development data.
 - Next: no confirmed backend defect remains from this audit. Read spec/current_work and inspect Git/CI before further work. React implementation and actual browser E2E remain next phase when authorized. CI on the final documentation commit is checked by the lead after push; no deployment performed.
+
+## 2026-11-08 13:14 Asia/Kolkata — frontend API contract agent
+- Added public GET /api/config in server/src/app.js returning only {timeZone, today}, derived from the same server configuration/date helper used by reading validation. Existing API routes/contracts remain unchanged. Existing API no-store middleware applies to the new endpoint.
+- Added server/test/config-api.test.js: unauthenticated public shape, no credential/internal-config leakage, no session cookie, no-store, and controlled-clock timezone/date behavior. Created dedicated sweety_config_test on the owned PostgreSQL instance at 127.0.0.1:55439; no demo/application data modified.
+- Verification: TEST_DATABASE_URL=postgres://sweety_dev@127.0.0.1:55439/sweety_config_test node --test server/test/config-api.test.js passed 2/2. node --check passed for both files; git diff --check passed. Clock test emits Node 22's expected experimental MockTimers warning.
+- Lead must restart the API to expose the endpoint, integrate frontend config fetching, and update API documentation/spec. No other implementation files, Git operations, deployment or browser acceptance performed by this agent.
+
+
+## 2026-11-08 13:15 Asia/Kolkata — frontend forms agent
+- Added client/src/components/AuthScreen.jsx and ReadingDialog.jsx only; no shared styles/package files changed. Other agents' changes preserved.
+- Auth screen supports login/signup, field validation aligned with server constraints, password visibility, pending/error states, notice display and demo credential filling without automatic login. API calls use shared credentialed api helper. Blue/white split composition supplied via class hooks for lead styling.
+- Reading dialog uses native showModal for focus trapping, autofocus on value, Escape/cancel support, pending dismissal protection, date/slot/value fields, whole-number/range/future validation and visible server/conflict errors. Parent owns save operation and closing after success.
+- Verification: both JSX files successfully parsed with esbuild transform. Browser rendering, keyboard focus, API happy/error paths and responsive acceptance remain for lead integration checks; no browser success claimed.
+- Next: lead applies shared CSS, integrates props into app, runs full browser flow checks and handles any observed integration issues. No Git actions performed.
+
+## 2026-11-08 13:15 Asia/Kolkata — frontend views agent
+- Added client/src/components/DailyView.jsx, ReportsView.jsx and HistoryView.jsx within assigned ownership. Other agents' implementation files were untouched; no Git operations.
+- Daily view renders four ordered slots with real values or empty actions, accessible slot-specific edit/delete labels, completion indicators and a three-stat daily summary. Reports show daily, month-to-date and explicitly previous-month windows with count/high/low/one-decimal average and friendly empty messages. History provides semantic table headers, labeled edit/delete actions and bounded previous/next pagination controls.
+- Components consume lead-owned shared formatters and data props; no API calls, fabricated readings, diagnostic labels or medical target ranges were introduced. Lead owns fetching/mutation state, date controls, last-page deletion correction and CSS responsiveness.
+- Verification: esbuild JSX parsing passed for all three files. Bundled server-render checks passed for all three empty states, including four accessible daily add actions and three report empty messages. Browser interaction, layout and real API integration remain for the lead's combined verification.
+- Sent the lead the complete supplemental CSS class list. Next: integrate App/CSS, then test add/edit/delete, reporting/date selection, history pagination and mobile/browser accessibility flows.
+
+## 2026-11-08 — lead frontend implementation milestone (Asia/Kolkata)
+- User authorized React frontend, API integration, subagents, browser verification, handoff updates and incremental pushes. Updated AGENTS.md/spec phase accordingly.
+- Added React/Vite client workspace and shared API client with cookie credentials; responsive white/blue dashboard shell, daily/report/history navigation, server-based dates, abortable data loading, session-expiry handling, mutation refresh and delete confirmation.
+- Integrated form/view subagent components. Added public /api/config contract via third agent to avoid client/server timezone disagreement.
+- First production build passed. Backend restarted to load config endpoint; frontend serves on port 5173. Browser acceptance is now in progress, not yet claimed.

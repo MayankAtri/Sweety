@@ -3,7 +3,7 @@
 ## Purpose and scope
 Sweety lets a diabetes patient privately record up to four glucose readings per day and review daily and monthly statistics. Assignment target: 3 days / approximately 10–15 hours. Prioritize required functionality, readable code, validation, and meaningful tests.
 
-Stack: React frontend (future phase), Node.js + Express API, PostgreSQL database. Although the assignment calls this MERN, PostgreSQL explicitly replaces MongoDB. Current authorized implementation phase: foundation and APIs, tests, setup, seed and documentation. Do not build the frontend yet. The user authorized a public GitHub repository and incremental commits/pushes on 8 November 2026.
+Stack: React frontend, Node.js + Express API, PostgreSQL database. Although the assignment calls this MERN, PostgreSQL explicitly replaces MongoDB. Current authorized implementation phase: foundation/APIs and React frontend, API integration, browser testing, documentation and polish. The user authorized a public GitHub repository and incremental commits/pushes on 8 November 2026.
 
 ## Required features
 ### Accounts
@@ -74,7 +74,7 @@ Cookie auth: protect browser writes by checking Origin against configured CLIENT
 ## Optional bonuses
 Pagination (included in API design), Docker Compose for PostgreSQL, charts, reading-form frontend tests, Redis invalidation, BullMQ reminder logging, assigned-patient doctor role. Only pagination and PostgreSQL Compose are in current phase; other bonuses deferred.
 
-## Future frontend phase
+## Frontend phase (authorized 8 November 2026)
 React login/signup screens, responsive dashboard, date selector, four slot controls, add/edit forms, delete confirmation, daily/MTD/previous-month reports, loading/error/empty states, accessible labels and keyboard controls. Clear field errors. Never fabricate patient records. Visual direction proposed: restrained white/blue layout with four visible daily slots.
 
 ## Agent workflow and acceptance
