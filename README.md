@@ -11,7 +11,7 @@ A blood glucose tracker built with React, Node.js, Express and PostgreSQL. Patie
 ## Requirements
 
 - Full-stack Docker: Docker Engine/Desktop with Compose v2; no host Node/PostgreSQL needed.
-- Local development/tests: Node.js 22 or newer, npm, and PostgreSQL 17+ (native or Docker).
+- Local development/tests: Node.js 22 or newer, npm, PostgreSQL 17+ and Redis 7+ (native or Docker).
 
 ## Quick start: full-stack Docker
 
@@ -22,10 +22,10 @@ docker compose up -d --build --wait
 docker compose exec api node server/scripts/seed.js
 ```
 
-Open **http://localhost:8080** and use the demo account below, or register your own account. The API runs migrations automatically before listening. Health checks order PostgreSQL → API → nginx; nginx serves the optimized React build and proxies `/api` internally. The API has no host-exposed port. A root `.env` is not required for this path; optional `APP_TIMEZONE` overrides the default Asia/Kolkata.
+Open **http://localhost:8080** and use the demo account below, or register your own account. The API runs migrations automatically before listening. Compose runs PostgreSQL, Redis, the API, a BullMQ worker and nginx; nginx serves the optimized React build and proxies `/api` internally. The API has no host-exposed port. A root `.env` is not required for this path; optional `APP_TIMEZONE` overrides the default Asia/Kolkata.
 
 ```sh
-docker compose ps                    # all three services should be healthy
+docker compose ps                    # db/redis/api/web healthy; worker running
 docker compose logs -f api           # API logs
 docker compose down                 # stop; preserve named database volume
 docker compose up -d --wait          # restart with stored accounts/readings
@@ -120,17 +120,17 @@ The UI includes login/signup, demo autofill, four daily slots, add/edit dialogs,
 ## Test
 
 ```sh
-npm test          # 55 API/integration/security/data/foundation/trend tests
+npm test          # real PostgreSQL + Redis integration/security/job tests
 npm run test:e2e   # full HTTP journey against a spawned API process
-npm run test:client # 10 helper + 33 React Testing Library component tests
+npm run test:client # 10 helper + 42 React Testing Library component tests
 npm run test:all   # all automated suites; also run in CI
 npm run build     # optimized React build; also run in CI
-npm run test:docker # smoke test against healthy localhost:8080 Docker stack
+npm run test:docker # smoke test against seeded localhost:8080 Docker stack
 ```
 
-Tests load `TEST_DATABASE_URL`, apply migrations and **truncate users/readings/sessions in that database**. They refuse to run without an explicit test database name ending in `_test`. Never point it at valuable data. Tests use real PostgreSQL and Supertest with an in-process Express server, not mocked SQL; no separately running API is needed.
+Tests load `TEST_DATABASE_URL` and `TEST_REDIS_URL`, apply migrations and **truncate users/readings/sessions in that database**. They refuse to run without an explicit test database name ending in `_test`. Never point it at valuable data. Tests use real PostgreSQL and Supertest with an in-process Express server, not mocked SQL; no separately running API is needed.
 
-Coverage includes account validation and bcrypt storage, cookie flags, hashed sessions, expiry/logout, authorization, browser-origin rejection, malformed JSON, glucose/date/slot validation, CRUD, duplicates and daily limits, concurrent requests, pagination, report arithmetic and calendar boundaries, empty states, database constraints, exact bigint IDs, and repeatable migrations/seeding. GitHub Actions runs all suites and the React build with PostgreSQL 17 on every push/PR, plus an independent full Docker build/start/seed/smoke job. RTL uses jsdom with explicit dialog lifecycle shims; actual modality remains covered by browser checks. The E2E test starts the real API entrypoint on an available TCP port, uses HTTP requests with a cookie jar, and verifies registration, CRUD, reports, process-restart persistence, isolation, login and logout. The automated E2E script covers HTTP journeys. Chromium UI journeys were separately exercised through Playwright CLI against real PostgreSQL, including the optimized build; those interactive checks are documented rather than claimed as CI browser tests. See [TEST_REPORT.md](TEST_REPORT.md) for the verification matrix and limitations.
+Coverage includes account validation and bcrypt storage, cookie flags, hashed sessions, expiry/logout, authorization, browser-origin rejection, malformed JSON, glucose/date/slot validation, CRUD, duplicates and daily limits, concurrent requests, pagination, report arithmetic and calendar boundaries, empty states, database constraints, exact bigint IDs, and repeatable migrations/seeding. GitHub Actions runs all suites and the React build with PostgreSQL 17 and Redis 7 on every push/PR, plus an independent full Docker build/start/seed/smoke job. RTL uses jsdom with explicit dialog lifecycle shims; actual modality remains covered by browser checks. The E2E test starts the real API entrypoint on an available TCP port, uses HTTP requests with a cookie jar, and verifies registration, CRUD, reports, process-restart persistence, isolation, login and logout. The automated E2E script covers HTTP journeys. Chromium UI journeys were separately exercised through Playwright CLI against real PostgreSQL, including the optimized build; those interactive checks are documented rather than claimed as CI browser tests. See [TEST_REPORT.md](TEST_REPORT.md) for the verification matrix and limitations.
 
 The Docker smoke test defaults to `http://localhost:8080`. To check another local stack, run `APP_BASE_URL=http://localhost:8081 npm run test:docker`. This optional variable must be passed in the shell; the smoke script does not load `.env`.
 
@@ -223,7 +223,7 @@ server/e2e/                    Full HTTP journeys using a spawned API process
 - Sessions expire after seven days. Logout revokes the current session; login rotates the current browser session. Password reset, email verification, session management UI and expired-session cleanup are future work.
 - Browser requests must match `CLIENT_ORIGIN`; cross-site browser writes are rejected. Requests without Origin are supported for curl/non-browser clients. API responses use Cache-Control: no-store. Cookies use HttpOnly/SameSite=Lax and Secure in production. Production requires an HTTPS frontend origin and same-site frontend/API hosting. Configure a known reverse proxy explicitly before deploying behind one; blindly trusting forwarded IP headers is unsafe.
 - Authentication rate limiting is per-process/in-memory (30 failed attempts per 15 minutes per IP); distributed deployments need shared storage. No deployment is claimed.
-- Required UI/API features and screenshots are present. Remaining verification limits: Safari/Firefox, physical mobile devices, formal screen-reader audit and deployed HTTPS. Monthly chart, form component tests and full-stack Docker bonuses are complete. Redis/jobs/doctor role remain deferred.
+- Required UI/API features and screenshots are present. Remaining verification limits: Safari/Firefox, physical mobile devices, formal screen-reader audit and deployed HTTPS. Monthly chart, form component tests and full-stack Docker bonuses are complete. Redis report caching, BullMQ reminder logging and the assigned-patient doctor role are implemented.
 - With more time: password recovery/verification, configurable patient timezone, expired-session cleanup, production monitoring/backups, distributed rate limiting and repeatable multi-browser UI tests in CI.
 
 Read `spec.md`, `AGENTS.md`, and the latest appended records in `current_work.md` before continuing work.
@@ -231,3 +231,55 @@ Read `spec.md`, `AGENTS.md`, and the latest appended records in `current_work.md
 ## Approved UI redesign
 
 The ivory/forest/citron journal design is implemented across authentication, Overview, Reports, History and dialogs. Overview includes inline reading entry and week/date navigation; narrow screens stack the journal and daily summary. See [design QA](design-qa.md), [research and references](docs/design-research/RESEARCH.md), and [test evidence](TEST_REPORT.md).
+
+## Redis report caching
+
+Set `REDIS_URL` to enable internal report and trend caching (Compose supplies it). Without it, the API reads PostgreSQL directly. `CACHE_TTL_SECONDS` defaults to300, accepts1–3600. Keys include database namespace, patient, report type, date and a PostgreSQL reading revision. A trigger changes the revision atomically for inserts/edits/deletes, moved dates and direct seed writes. Old entries expire; they cannot be reused after a committed mutation. Each hit still checks the revision in PostgreSQL. Redis failure falls back to live PostgreSQL; browser responses remain `Cache-Control: no-store`. Doctor assignment is checked before cache access.
+
+For native development/tests, start a dedicated Redis instance, for example:
+
+```sh
+docker run -d --name sweety-dev-redis -p 127.0.0.1:56379:6379 redis:7-alpine
+# In .env: REDIS_URL=redis://localhost:56379
+# In .env: TEST_REDIS_URL=redis://localhost:56379/15
+```
+
+Use a disposable Redis endpoint/database for tests. Do not export `REDIS_URL` globally for the test suite; its Redis integration file initializes and closes its own cache using `TEST_REDIS_URL`. The HTTP E2E child process also uses `TEST_REDIS_URL`.
+
+## Reminder worker (logging only)
+
+Compose starts the worker automatically. Native development uses `npm run worker` in a separate terminal with `DATABASE_URL` and `REDIS_URL` configured. BullMQ maintains one daily08:00 scheduler in `APP_TIMEZONE`. It logs missing daily slots for patient accounts; doctors and complete days are excluded. No email, SMS or push notification is sent.
+
+The PostgreSQL `reminder_logs` table has a unique patient/date constraint, so retries and multiple workers cannot duplicate the durable log. Jobs retry up to3 times with exponential backoff. A delayed worker uses its current local calendar date; retries pin that date before the side effect. Redis has a persistent Compose volume and uses `noeviction` for queue reliability. Use separate Redis instances/databases for separate app environments.
+
+```sh
+docker compose exec api node server/scripts/reminders.js enqueue
+# Enqueues and waits up to20s for a real worker result; rerunning logs0 duplicates.
+docker compose exec api node server/scripts/reminders.js logs
+docker compose logs worker
+# Native equivalents:
+npm run reminders -- enqueue
+npm run reminders -- logs 2026-11-08
+```
+
+Redis-unavailable startup/CLI operations fail within a bounded interval; an already-running worker reconnects after an outage. Durable log entries are the source of truth, including if a crash happens between a database commit and console output.
+
+## Assigned-patient doctor role
+
+The development seed provides **doctor@sweety.example / SweetyDoctor123!**, assigned to **demo@sweety.example**. Log in normally; the doctor workspace offers assigned patients, date navigation, four-slot daily readings, summary reports and chart/data table. There are no reading mutation controls. Doctors cannot use patient endpoints; patients cannot access doctor endpoints. Unassigned/revoked patient IDs return404, including when a report is cached.
+
+Public signup always creates a patient and rejects a supplied role. An operator must explicitly provision an empty registered account as a doctor, then assign patients:
+
+```sh
+npm run doctor -- promote clinician@example.com
+npm run doctor -- assign clinician@example.com patient@example.com
+npm run doctor -- revoke clinician@example.com patient@example.com
+# Docker equivalent:
+docker compose exec api node server/scripts/manage-doctor.js assign clinician@example.com patient@example.com
+```
+
+Promotion refuses accounts with readings or existing patient assignments and revokes prior sessions. The operator commands require direct database access; no public elevation/assignment route exists. Assignment roles are enforced by PostgreSQL composite foreign keys. Revocation applies to subsequent API requests; already rendered data disappears when refreshed or navigating to another report.
+
+New endpoints: `GET /api/doctor/patients?page=1&limit=12`, `GET /api/doctor/patients/:patientId/reports?date=YYYY-MM-DD`, and the corresponding `/trends` endpoint. Public user responses include `role`. Doctor patient-list pages contain `{patients,page,limit,total}`.
+
+[Doctor desktop](docs/screenshots/bonuses/doctor-desktop.jpg) · [Doctor mobile](docs/screenshots/bonuses/doctor-mobile.jpg) · [Doctor chart](docs/screenshots/bonuses/doctor-chart.jpg)

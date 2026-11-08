@@ -47,7 +47,7 @@ test('health checks the real database', async () => {
 });
 test('registration normalizes email and stores bcrypt, never plaintext', async () => {
   const response = await owner.get('/api/auth/me').expect(200);
-  assert.deepEqual(response.body.user, { id: ownerId, name: 'Demo Patient', email: 'owner@example.com' });
+  assert.deepEqual(response.body.user, { id: ownerId, name: 'Demo Patient', email: 'owner@example.com', role: 'patient' });
   const { rows: [user] } = await pool.query('SELECT password_hash FROM users WHERE id=$1', [ownerId]);
   assert.notEqual(user.password_hash, password);
   assert.ok(await bcrypt.compare(password, user.password_hash));

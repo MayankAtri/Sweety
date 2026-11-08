@@ -32,7 +32,18 @@ if (config.nodeEnv === 'production') {
       await client.query(`INSERT INTO readings(user_id,date,slot,value) VALUES ($1,$2,$3,$4)
         ON CONFLICT (user_id,date,slot) DO NOTHING`, [userId, sampleDate, slot, value]);
     }
+    const doctorHash = await bcrypt.hash('SweetyDoctor123!', 12);
+    await client.query(`INSERT INTO users(name,email,password_hash,role)
+      VALUES ($1,$2,$3,'doctor') ON CONFLICT (email) DO NOTHING`,
+    ['Demo Doctor', 'doctor@sweety.example', doctorHash]);
+    const { rows: [doctor] } = await client.query(
+      'SELECT id,role FROM users WHERE email=$1', ['doctor@sweety.example'],
+    );
+    if (doctor.role !== 'doctor') throw new Error('DEMO_DOCTOR_ROLE_CONFLICT');
+    await client.query(`INSERT INTO doctor_patients(doctor_id,patient_id)
+      VALUES ($1,$2) ON CONFLICT DO NOTHING`, [doctor.id, userId]);
     await client.query('COMMIT');
+    console.log('Demo doctor ready: doctor@sweety.example / SweetyDoctor123! (development only).');
     console.log('Demo data ready: demo@sweety.example / SweetyDemo123! (development only). Existing account passwords are unchanged.');
   } catch (error) {
     if (client) await client.query('ROLLBACK');

@@ -23,7 +23,7 @@ export function readSessionToken(req) {
 }
 
 export function publicUser(user) {
-  return { id: String(user.id), name: user.name, email: user.email };
+  return { id: String(user.id), name: user.name, email: user.email, role: user.role };
 }
 
 // Accept a transaction client so registration and its first session are atomic.
@@ -57,7 +57,7 @@ export async function requireAuth(req, res, next) {
   if (!token) throw new AppError(401, 'UNAUTHENTICATED', 'Please log in to continue.');
 
   const { rows } = await pool.query(
-    `SELECT users.id, users.name, users.email
+    `SELECT users.id, users.name, users.email, users.role
      FROM sessions JOIN users ON users.id = sessions.user_id
      WHERE sessions.token_hash = $1 AND sessions.expires_at > NOW()`,
     [sessionDigest(token)],
@@ -67,5 +67,12 @@ export async function requireAuth(req, res, next) {
     throw new AppError(401, 'UNAUTHENTICATED', 'Please log in to continue.');
   }
   req.user = publicUser(rows[0]);
+  next();
+}
+
+export function requirePatient(req, res, next) {
+  if (req.user.role !== 'patient') {
+    throw new AppError(403, 'PATIENT_REQUIRED', 'This action is available to patient accounts only.');
+  }
   next();
 }

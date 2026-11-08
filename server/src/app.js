@@ -7,11 +7,12 @@ import { config } from './config.js';
 import { today } from './dates.js';
 import { pool } from './db.js';
 import { AppError } from './errors.js';
-import { requireAuth } from './auth.js';
+import { requireAuth, requirePatient } from './auth.js';
 import authRouter from './routes/auth.js';
 import readingsRouter from './routes/readings.js';
 import reportsRouter from './routes/reports.js';
 import trendsRouter from './routes/trends.js';
+import doctorRouter from './routes/doctor.js';
 
 export function createApp() {
   const app = express();
@@ -60,9 +61,10 @@ export function createApp() {
   app.use('/api/auth/register', authLimiter);
   app.use('/api/auth/login', authLimiter);
   app.use('/api/auth', authRouter);
-  app.use('/api/readings', requireAuth, readingsRouter);
-  app.use('/api/reports', requireAuth, reportsRouter);
-  app.use('/api/trends', requireAuth, trendsRouter);
+  app.use('/api/readings', requireAuth, requirePatient, readingsRouter);
+  app.use('/api/reports', requireAuth, requirePatient, reportsRouter);
+  app.use('/api/trends', requireAuth, requirePatient, trendsRouter);
+  app.use('/api/doctor', requireAuth, doctorRouter);
   app.use((req, res, next) => next(new AppError(404, 'NOT_FOUND', 'Endpoint not found.')));
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);

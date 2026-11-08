@@ -1,4 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ChartNoAxesCombined,
   Check,
@@ -25,6 +32,7 @@ import DailyView from "./components/DailyView.jsx";
 import DateNavigation from "./components/DateNavigation.jsx";
 const ReportsView = lazy(() => import("./components/ReportsView.jsx"));
 import HistoryView from "./components/HistoryView.jsx";
+const DoctorView = lazy(() => import("./components/DoctorView.jsx"));
 
 function DeleteDialog({ reading, onClose, onConfirm }) {
   const ref = useRef(null);
@@ -118,13 +126,13 @@ export default function App() {
   const [loggingOut, setLoggingOut] = useState(false);
   const requestKey = `${user?.id}/${view}/${view === "history" ? `history/${page}` : `reports/${date}`}/${version}`;
   const data = result?.key === requestKey ? result.data : null;
-  const expire = () => {
+  const expire = useCallback(() => {
     setUser(null);
     setResult(null);
     setEditing(null);
     setDeleting(null);
     setNotice("Your session has expired. Please log in again.");
-  };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -154,7 +162,7 @@ export default function App() {
   }, [bootVersion]);
 
   useEffect(() => {
-    if (!user || !date) return;
+    if (!user || user.role === "doctor" || !date) return;
     const controller = new AbortController();
     setLoadError("");
     const path =
@@ -298,11 +306,14 @@ export default function App() {
     reports: "A clearer picture",
     history: "Your reading history",
   }[view];
-  const navItems = [
-    ["daily", "Overview", LayoutDashboard],
-    ["reports", "Reports", ChartNoAxesCombined],
-    ["history", "History", History],
-  ];
+  const isDoctor = user.role === "doctor";
+  const navItems = isDoctor
+    ? [["daily", "Patients", LayoutDashboard]]
+    : [
+        ["daily", "Overview", LayoutDashboard],
+        ["reports", "Reports", ChartNoAxesCombined],
+        ["history", "History", History],
+      ];
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
@@ -380,127 +391,158 @@ export default function App() {
         </details>
       </header>
       <main id="main" className="workspace">
-        <header className="page-header">
-          <div>
-            <p className="eyebrow">
-              {view === "daily"
-                ? formatDate(date, { weekday: "long", month: "long" })
-                : "Your glucose journal"}
-            </p>
-            <h1>{title}</h1>
-            <p className="muted">
-              {view === "daily"
-                ? "Record the number shown on your glucose meter."
-                : view === "reports"
-                  ? "Your readings, summarized over time."
-                  : "Your readings, organized by date."}
-            </p>
-          </div>
-          {view !== "daily" && (
-            <button
-              className="button"
-              onClick={() =>
-                onAdd(
-                  SLOTS.find(
-                    (item) =>
-                      !data?.daily?.readings?.some(
-                        (reading) => reading.slot === item.value,
-                      ),
-                  )?.value || "morning",
-                )
+        {isDoctor ? (
+          <>
+            {actionError && (
+              <p className="form-error" role="alert">
+                {actionError}
+              </p>
+            )}
+            <Suspense
+              fallback={
+                <p className="loading-panel" role="status">
+                  Loading doctor workspace…
+                </p>
               }
             >
-              <Plus size={18} />
-              Add reading
-            </button>
-          )}
-        </header>
-        {actionError && (
-          <p className="form-error" role="alert">
-            {actionError}
-          </p>
-        )}
-        {notice && (
-          <div className="notice" role="status">
-            <Check size={17} />
-            <span>{notice}</span>
-            <button
-              className="icon-button"
-              aria-label="Dismiss notification"
-              onClick={() => setNotice("")}
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
-        {view !== "history" && (
-          <DateNavigation
-            date={date}
-            today={settings.today}
-            onChange={changeDate}
-          />
-        )}
-        {dateError && (
-          <p className="form-error" role="alert">
-            {dateError}
-          </p>
-        )}
-        {loadError ? (
-          <div className="empty-state error-state" role="alert">
-            <h2>We couldn’t load your readings.</h2>
-            <p>{loadError}</p>
-            <button
-              className="button secondary"
-              onClick={() => setVersion((value) => value + 1)}
-            >
-              <RefreshCw size={17} />
-              Try again
-            </button>
-          </div>
-        ) : !data ? (
-          <div className="loading-panel" role="status">
-            <span className="loading-dot" />
-            Loading your {view === "history" ? "history" : "readings"}…
-          </div>
-        ) : view === "daily" ? (
-          <DailyView
-            key={`${user.id}/${date}/${version}`}
-            report={data.daily}
-            date={date}
-            onSave={saveReading}
-            onEdit={onEdit}
-            onDelete={setDeleting}
-          />
-        ) : view === "reports" ? (
-          <Suspense
-            fallback={
-              <div className="loading-panel" role="status">
-                Loading reports…
-              </div>
-            }
-          >
-            <ReportsView reports={data} trend={data.trend} />
-          </Suspense>
+              <DoctorView
+                key={user.id}
+                userId={user.id}
+                date={date}
+                today={settings.today}
+                onDateChange={changeDate}
+                dateError={dateError}
+                onExpired={expire}
+              />
+            </Suspense>
+          </>
         ) : (
-          <HistoryView
-            data={data}
-            onPage={setPage}
-            onEdit={onEdit}
-            onDelete={setDeleting}
-            loading={false}
-          />
+          <>
+            <header className="page-header">
+              <div>
+                <p className="eyebrow">
+                  {view === "daily"
+                    ? formatDate(date, { weekday: "long", month: "long" })
+                    : "Your glucose journal"}
+                </p>
+                <h1>{title}</h1>
+                <p className="muted">
+                  {view === "daily"
+                    ? "Record the number shown on your glucose meter."
+                    : view === "reports"
+                      ? "Your readings, summarized over time."
+                      : "Your readings, organized by date."}
+                </p>
+              </div>
+              {view !== "daily" && (
+                <button
+                  className="button"
+                  onClick={() =>
+                    onAdd(
+                      SLOTS.find(
+                        (item) =>
+                          !data?.daily?.readings?.some(
+                            (reading) => reading.slot === item.value,
+                          ),
+                      )?.value || "morning",
+                    )
+                  }
+                >
+                  <Plus size={18} />
+                  Add reading
+                </button>
+              )}
+            </header>
+            {actionError && (
+              <p className="form-error" role="alert">
+                {actionError}
+              </p>
+            )}
+            {notice && (
+              <div className="notice" role="status">
+                <Check size={17} />
+                <span>{notice}</span>
+                <button
+                  className="icon-button"
+                  aria-label="Dismiss notification"
+                  onClick={() => setNotice("")}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+            {view !== "history" && (
+              <DateNavigation
+                date={date}
+                today={settings.today}
+                onChange={changeDate}
+              />
+            )}
+            {dateError && (
+              <p className="form-error" role="alert">
+                {dateError}
+              </p>
+            )}
+            {loadError ? (
+              <div className="empty-state error-state" role="alert">
+                <h2>We couldn’t load your readings.</h2>
+                <p>{loadError}</p>
+                <button
+                  className="button secondary"
+                  onClick={() => setVersion((value) => value + 1)}
+                >
+                  <RefreshCw size={17} />
+                  Try again
+                </button>
+              </div>
+            ) : !data ? (
+              <div className="loading-panel" role="status">
+                <span className="loading-dot" />
+                Loading your {view === "history" ? "history" : "readings"}…
+              </div>
+            ) : view === "daily" ? (
+              <DailyView
+                key={`${user.id}/${date}/${version}`}
+                report={data.daily}
+                date={date}
+                onSave={saveReading}
+                onEdit={onEdit}
+                onDelete={setDeleting}
+              />
+            ) : view === "reports" ? (
+              <Suspense
+                fallback={
+                  <div className="loading-panel" role="status">
+                    Loading reports…
+                  </div>
+                }
+              >
+                <ReportsView reports={data} trend={data.trend} />
+              </Suspense>
+            ) : (
+              <HistoryView
+                data={data}
+                onPage={setPage}
+                onEdit={onEdit}
+                onDelete={setDeleting}
+                loading={false}
+              />
+            )}
+          </>
         )}
         <footer className="workspace-footer">
           <span>
             <Droplet size={13} />
-            {user.email === "demo@sweety.example"
-              ? "Demo account · Sample readings"
-              : "Sweety · Your private glucose journal"}
+            {isDoctor
+              ? "Sweety · Assigned-patient reports"
+              : user.email === "demo@sweety.example"
+                ? "Demo account · Sample readings"
+                : "Sweety · Your private glucose journal"}
           </span>
           <span>Dates follow {settings.timeZone.replaceAll("_", " ")}</span>
         </footer>
       </main>
-      {editing && (
+      {!isDoctor && editing && (
         <ReadingDialog
           reading={editing.reading}
           date={editing.date}
@@ -510,7 +552,7 @@ export default function App() {
           onSave={saveReading}
         />
       )}
-      {deleting && (
+      {!isDoctor && deleting && (
         <DeleteDialog
           reading={deleting}
           onClose={() => setDeleting(null)}

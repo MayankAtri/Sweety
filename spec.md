@@ -10,7 +10,7 @@ Stack: React frontend, Node.js + Express API, PostgreSQL database. Although the 
 - Register with name, email and password; log in and log out.
 - Hash passwords with bcrypt, never retain plaintext. Normalize emails to lowercase and trim surrounding whitespace.
 - Use server-side sessions with an opaque random token in an HttpOnly, SameSite cookie. Store only its SHA-256 digest in PostgreSQL; expire sessions after seven days. Secure cookies in production.
-- Every reading and report query must be scoped to the authenticated user. Never accept a user ID from a request body as authorization.
+- Patient reading and report queries are scoped to the authenticated patient. Doctor report queries require an explicit database assignment checked on every request. Never accept a user ID from a request body as authorization.
 - Bound input sizes, rate-limit authentication, and avoid leaking internal errors or credentials.
 
 ### Readings
@@ -49,7 +49,7 @@ All paths below start with `/api`. JSON errors: `{ "error": { "code": "...", "me
 - DELETE /readings/:id: 204.
 - GET /trends?date=YYYY-MM-DD: authenticated {startDate,endDate,readings}; selected month through selected date, all own readings in date/slot order, maximum124. Missing readings remain gaps in the chart.
 - GET /reports?date=YYYY-MM-DD: {daily,monthToDate,monthly}. Each report has startDate,endDate,highest,lowest,average,count; daily also has readings.
-Public user: {id,name,email}; reading: {id,date,slot,value,createdAt,updatedAt}. IDs serialized consistently as strings.
+Public user: {id,name,email,role}; reading: {id,date,slot,value,createdAt,updatedAt}. IDs serialized consistently as strings.
 Status conventions: 400 input errors, 401 unauthenticated, 403 disallowed browser origin, 404 missing resource, 409 duplicate email/reading or full day, 413 oversized body, 415 unsupported charset/encoding, 429 rate limit, 500 unexpected server error.
 
 ## Architecture and data
@@ -74,13 +74,19 @@ Cookie auth: protect browser writes by checking Origin against configured CLIENT
 - CI runs tests with a PostgreSQL service.
 
 ## Optional bonuses
-Pagination (included in API design), Docker Compose for PostgreSQL, charts, reading-form frontend tests, Redis invalidation, BullMQ reminder logging, assigned-patient doctor role. Completed/authorized bonuses: pagination, full-stack Docker Compose, monthly line chart and React Testing Library form tests. Redis, BullMQ and doctor role remain deferred by the user’s explicit selection.
+Pagination (included in API design), Docker Compose for PostgreSQL, charts, reading-form frontend tests, Redis invalidation, BullMQ reminder logging, assigned-patient doctor role. Completed/authorized bonuses: pagination, full-stack Docker Compose, monthly line chart and React Testing Library form tests. The user subsequently authorized Redis invalidation, BullMQ reminder logging and the assigned-patient doctor role on 8 November 2026; implement and verify them end to end.
 
 ## Frontend phase (authorized 8 November 2026)
-React login/signup screens, responsive dashboard, date selector, four slot controls, add/edit forms, delete confirmation, daily/MTD/previous-month reports, loading/error/empty states, accessible labels and keyboard controls. Clear field errors. Never fabricate patient records. Visual direction proposed: restrained white/blue layout with four visible daily slots.
+React login/signup screens, responsive dashboard, date selector, four slot controls, add/edit forms, delete confirmation, daily/MTD/previous-month reports, loading/error/empty states, accessible labels and keyboard controls. Clear field errors. Never fabricate patient records. Approved visual direction: ivory/forest/citron journal, top navigation and inline entry with four visible daily slots.
 
 ## Agent workflow and acceptance
 Read AGENTS.md, this specification, current_work.md and git status before starting. Each agent appends a timestamped completion record to current_work.md: task, files, decisions, tests, limitations, next steps. Preserve previous records. Coordinate ownership and avoid editing others' files. The lead integrates, reviews, runs complete tests and owns commits/pushes. Never claim frontend, deployment or full assignment completion from API success alone.
 
 ## Frontend implementation notes
 React/Vite npm workspace client; relative /api requests with cookie credentials and dev/preview proxy to Express. Server /api/config supplies timezone and today. UI covers Overview, Reports and paginated History; native dialogs with explicit keyboard looping; request cancellation guards prevent stale data/errors. CI checks client helper tests and production build; browser journeys are documented in TEST_REPORT.md. Local preview is not a hosted deployment.
+
+## Final optional implementation contracts
+- Redis caches reports/trends by patient/date/type and transactional PostgreSQL revision; bounded TTL; cache outage falls back to PostgreSQL. Auth/doctor assignment checks precede access.
+- BullMQ worker schedules logging-only reminders daily08:00 APP_TIMEZONE; PostgreSQL unique patient/date logs make retries idempotent;3 attempts/backoff, no email/push delivery.
+- Doctor workspace is read-only and assigned-patient-only. Public signup rejects role selection. Operator CLI promotes empty registered accounts and assigns/revokes patients; dev seed adds a doctor. Direct patient reading endpoints reject doctors.
+- Required checks extend to real Redis caching/outage/retry, durable worker logs, doctor permissions/revocation, HTTP journeys, responsive browser flows and Docker process lifecycle.

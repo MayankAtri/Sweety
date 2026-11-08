@@ -48,7 +48,7 @@ test('login rotates the supplied session while a separate device remains authent
 test('registration rotates a current session and never returns internal account fields', async () => {
   const old = cookieOf(await login().expect(200));
   const registered = await request(app).post('/api/auth/register').set('Cookie', old).send({ name: 'Second Account', email: 'second@example.com', password }).expect(201);
-  assert.deepEqual(Object.keys(registered.body.user).sort(), ['email', 'id', 'name']);
+  assert.deepEqual(Object.keys(registered.body.user).sort(), ['email', 'id', 'name', 'role']);
   await request(app).get('/api/auth/me').set('Cookie', old).expect(401);
   const current = await request(app).get('/api/auth/me').set('Cookie', cookieOf(registered)).expect(200);
   assert.equal(current.body.user.email, 'second@example.com');

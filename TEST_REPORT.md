@@ -6,15 +6,15 @@ Verified 8 November 2026 (Asia/Kolkata). Scope: React frontend, Express API, Pos
 
 | Suite | Result | Coverage |
 | --- | --- | --- |
-| API/integration/security/foundation | 55 passed | Auth, sessions, ownership, reading CRUD/validation/concurrency, reports, migration/seed, config, lifecycle |
-| HTTP E2E | 1 complete journey passed | Real spawned API process, cookie jar, signup → CRUD → reports → restart → isolation → logout/login |
+| API/integration/security/foundation | 72 passed | Auth, sessions, ownership, reading CRUD/validation/concurrency, reports, migration/seed, config, lifecycle |
+| HTTP E2E | 2 complete journeys passed | Real spawned API process, cookie jar, signup → CRUD → reports → restart → isolation → logout/login |
 | Client helper regression | 10 passed | Credentials, JSON requests, cancellation during fetch/body read, network/server errors, empty responses, calendar validation and formatting |
-| React Testing Library form components | 33 passed | ReadingDialog and AuthScreen regression plus inline journal validation/bounds/conflict/edit/pending and week-navigation boundaries |
+| React Testing Library form components | 42 passed | ReadingDialog and AuthScreen regression plus inline journal validation/bounds/conflict/edit/pending and week-navigation boundaries |
 | Docker smoke | Passed locally and CI | Built nginx frontend, proxy/cookies, health, signup, CRUD, reports/trends, logout |
 | Production build | Passed | Optimized React/Vite bundle |
 | Dependency audit | Zero known vulnerabilities reported | npm installation audit |
 
-CI runs `npm run test:all` (99 tests) and `npm run build` against PostgreSQL 17 on every push/PR. A separate Docker job builds both images, starts all services, seeds and runs `npm run test:docker`. Both jobs passed for the optional-features implementation: https://github.com/MayankAtri/Sweety/actions/runs/42462443118 . The expanded frontend phase was locally verified against PostgreSQL 18. The preceding 50-test backend phase also passed on Docker PostgreSQL 17, including real database outage/recovery (health 200 → 503 → 200).
+CI runs `npm run test:all` (126 tests) and `npm run build` against PostgreSQL 17 on every push/PR. A separate Docker job builds both images, starts all services, seeds and runs `npm run test:docker`. Both jobs passed for the optional-features implementation: https://github.com/MayankAtri/Sweety/actions/runs/42462443118 . The expanded frontend phase was locally verified against PostgreSQL 18. The preceding 50-test backend phase also passed on Docker PostgreSQL 17, including real database outage/recovery (health 200 → 503 → 200).
 
 ## Earlier pre-redesign real-browser acceptance
 
@@ -112,3 +112,29 @@ The 99-test suite was rerun against real PostgreSQL on port 55439: 55 API/databa
 New browser checks used Product Design's in-app browser at requested widths 320, 390, 768, 1024 and 1440. Verified mobile registration, inline creation (130), edit (145), refreshed daily/MTD values, single-point chart and exact data table, history, delete confirmation/Escape cancellation, reload persistence, logout/demo login, empty daily state, required-value error/focus, and previous-week/Today behavior. Captured console query returned no warning/error entries. Screenshots are in `docs/screenshots/redesign`; normalized approved-target comparisons and limitations are documented in `design-qa.md`.
 
 Earlier browser checks above are historical evidence, not claims that every fault-injection/pagination scenario was manually repeated after restyling. API/HTTP tests cover deletion, isolation, concurrency, pagination and date boundaries. Physical devices, Safari/Firefox, formal assistive-technology audit, text zoom and hosted HTTPS remain outside verified acceptance.
+
+## Final optional bonuses — 8 November 2026
+
+Implemented and checked Redis report/trend caching, BullMQ daily reminder logging and the assigned-patient doctor workflow. Current automated coverage totals126:72 PostgreSQL/Redis/server checks,2 real HTTP process journeys,10 client helpers and42 RTL component tests. Redis and BullMQ tests require a real disposable TEST_REDIS_URL; no skipped/mocked Redis acceptance. Tests run sequentially within the server suite to isolate destructive database setup.
+
+| Individual feature | Evidence |
+| --- | --- |
+| Patient auth/session | Existing registration/login/bcrypt/cookie/expiry/logout/security tests; actual mobile registration and logout; reload restores session. |
+| Patient CRUD/validation | Real PG concurrency, unique slots, daily maximum, integer bounds, dates, ownership and pagination tests; HTTP creation of all4slots and updates/deletion. Browser creates101, edits141, checks history and delete-cancel. |
+| Reports/trends | Exact daily/MTD/previous-month calculations, year/leap boundaries, empty states and true reading data. Browser doctor demo117.0/125.3/126.5 and patient141.0 verified. |
+| Redis cache hits/isolation | Real Redis keys, loader-call counts, patient/type/date isolation and TTL expiry. Version lookup remains PostgreSQL-backed on every hit. |
+| Invalidation | HTTP CRUD, moved date across months, direct SQL writes, TRUNCATE and in-flight fill race all tested against PostgreSQL revisions. Doctor HTTP reports refresh after patient writes. |
+| Redis outage/recovery | Real TCP interruption/reconnection test plus stopped Compose Redis: full patient/doctor smoke still passed. Restarted Redis and worker; jobs continued. |
+| Reminder schedule | Actual BullMQ scheduler upsert idempotence,08:00 pattern and configured timezone verified. Natural clock firing was not waited for. |
+| Reminder execution | Real worker consumes queued jobs; durable missing-slot logs; doctor/full-day exclusion. Second run returns logged0. CLI verifies completion through queue events, not enqueue alone. |
+| Retry/deduplication | Induced PostgreSQL failure causes real BullMQ retry, then success. Unique patient/date persists one log; restart/repeated invocation keeps existing entries. |
+| Worker lifecycle | Docker worker restart then queued completion; unavailable-Redis worker and CLI subprocesses exit nonzero naturally after bounded readiness/cleanup. The first direct run uncovered a cleanup hang; fixed and regression-tested. Process-start budget includes import/CPU scheduling separately from cleanup deadline. |
+| Doctor assignment | PostgreSQL role foreign keys; operator promote/assign/revoke, rejected promotion with readings/assignments, session revocation on promotion, non-elevating seed collisions, public role rejection. |
+| Doctor access | Patient and unauthenticated access blocked; doctor self CRUD blocked; unassigned IDs404; revocation blocks reports and cached data on subsequent requests. Real HTTP doctor journey and Docker smoke passed. |
+| Doctor browser | Login, assigned-patient chooser, read-only4-slot table, reports/chart/table, refresh after revoke -> empty; assign -> restored chooser, logout. Mobile390 and320 plus desktop1440 inspected. |
+| UI stale/empty/error behavior |9 new RTL cases include doctor role shell, empty/error/retry/session expiry, pagination and stale-response guards; old patient form tests retained. API restart during browser logout produced a clear connection error; retry succeeded. |
+| Container path | PostgreSQL/Redis/API/worker/nginx rebuilt; existing volumes preserved, migrations and repeat seed succeeded; patient+doctor smoke and real reminder CLI repeated. |
+
+Browser evidence: `docs/screenshots/bonuses/doctor-desktop.jpg`, `doctor-mobile.jpg`, `doctor-320.jpg`, `doctor-empty.jpg`, `doctor-chart.jpg`. IAB captured console warning/error query returned no entries after final reload; the earlier deliberate service restart caused a handled network error. The synthetic browser patient retains one141 reading locally. Seeded demo readings are unchanged; temporarily revoked doctor assignment was restored.
+
+The normal local preview/API were migrated, seeded and restarted with Redis enabled, and a local worker was started. Docker on8080 remains an independently stored full-stack environment. No hosted deployment or real reminder delivery is claimed. Safari/Firefox, physical devices, formal assistive technology and unattended browser CI remain unverified; browser actions and HTTP E2E are distinguished above.

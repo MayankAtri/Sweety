@@ -32,4 +32,16 @@ try {
   throw new Error('APP_TIMEZONE must be a valid IANA time zone.');
 }
 
-export const config = Object.freeze({ port, databaseUrl, clientOrigin, appTimezone, nodeEnv });
+const redisUrl = process.env.REDIS_URL || '';
+if (redisUrl) {
+  try {
+    if (!['redis:', 'rediss:'].includes(new URL(redisUrl).protocol)) throw new Error();
+  } catch {
+    throw new Error('REDIS_URL must be a valid Redis connection URL.');
+  }
+}
+const cacheTtlSeconds = Number(process.env.CACHE_TTL_SECONDS || 300);
+if (!Number.isInteger(cacheTtlSeconds) || cacheTtlSeconds < 1 || cacheTtlSeconds > 3600) {
+  throw new Error('CACHE_TTL_SECONDS must be an integer between 1 and 3600.');
+}
+export const config = Object.freeze({ port, databaseUrl, clientOrigin, appTimezone, nodeEnv, redisUrl, cacheTtlSeconds });

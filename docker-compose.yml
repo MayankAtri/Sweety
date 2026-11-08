@@ -17,6 +17,17 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - sweety_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build:
       context: .
@@ -27,6 +38,8 @@ services:
       DATABASE_URL: postgres://sweety:sweety_local_password@db:5432/sweety
       CLIENT_ORIGIN: http://localhost:8080
       APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
+      REDIS_URL: redis://redis:6379
+      CACHE_TTL_SECONDS: 300
     depends_on:
       db:
         condition: service_healthy
@@ -36,6 +49,25 @@ services:
       timeout: 3s
       start_period: 15s
       retries: 10
+    init: true
+
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: ["node", "server/src/worker.js"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://sweety:sweety_local_password@db:5432/sweety
+      CLIENT_ORIGIN: http://localhost:8080
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
     init: true
 
   web:
@@ -55,3 +87,4 @@ services:
 
 volumes:
   sweety_postgres:
+  sweety_redis:

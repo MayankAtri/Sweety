@@ -30,6 +30,9 @@ function credentials(body) {
 
 router.post('/register', async (req, res) => {
   const { email, password } = credentials(req.body);
+  if (Object.hasOwn(req.body, 'role')) {
+    throw new AppError(400, 'INVALID_ROLE', 'Public registration creates patient accounts only.');
+  }
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!name || name.includes('\0') || [...name].length > 100) {
     throw new AppError(400, 'INVALID_NAME', 'Please enter a name between 1 and 100 characters.');
@@ -42,7 +45,7 @@ router.post('/register', async (req, res) => {
     await client.query('BEGIN');
     const { rows } = await client.query(
       `INSERT INTO users (name, email, password_hash)
-       VALUES ($1, $2, $3) RETURNING id, name, email`,
+       VALUES ($1, $2, $3) RETURNING id, name, email, role`,
       [name, email, passwordHash],
     );
     user = publicUser(rows[0]);
@@ -65,7 +68,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = credentials(req.body);
   const { rows } = await pool.query(
-    'SELECT id, name, email, password_hash FROM users WHERE email = $1',
+    'SELECT id, name, email, role, password_hash FROM users WHERE email = $1',
     [email],
   );
   const user = rows[0];

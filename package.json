@@ -21,6 +21,9 @@
     "build": "npm run build --workspace client",
     "preview": "npm run preview --workspace client",
     "test:client": "npm run test --workspace client",
-    "test:docker": "node scripts/docker-smoke.mjs"
+    "test:docker": "node scripts/docker-smoke.mjs",
+    "worker": "npm run worker --workspace server",
+    "reminders": "npm run reminders --workspace server",
+    "doctor": "npm run doctor --workspace server"
   }
 }

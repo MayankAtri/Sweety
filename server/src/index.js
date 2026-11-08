@@ -2,6 +2,7 @@ import { once } from 'node:events';
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { pool } from './db.js';
+import { closeReportCache } from './cache.js';
 
 let server;
 let closing = false;
@@ -13,6 +14,7 @@ async function shutdown() {
     if (server?.listening) {
       await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     }
+    await closeReportCache();
     await pool.end();
     clearTimeout(timeout);
     process.exit(0);
@@ -32,6 +34,7 @@ try {
 } catch (error) {
   // Database errors can contain connection details; emit only a safe code.
   console.error('Startup failed:', error.code || error.name);
+  await closeReportCache();
   await pool.end();
   process.exitCode = 1;
 }

@@ -55,3 +55,7 @@ Physical iOS/Android, Safari/Firefox, formal screen-reader audit, 200% text zoom
 ## Follow-up polish
 
 P3: a future font pass could further match the generated reference's small-text optical weight. No additional font download or runtime dependency was introduced for an unverifiable font identity.
+
+## Doctor workspace extension
+
+The authorized optional doctor role reuses the approved typography, tokens, navigation, date controls, report cards and chart. Its new chooser and read-only daily table were inspected in the actual Docker browser at1440,390 and320 widths, with screenshots in `docs/screenshots/bonuses/`. No separate doctor mockup was supplied, so these are design-system consistency/responsiveness checks, not pixel-fidelity claims. Selected patient identity and read-only access remain explicit; mutation controls are absent. Assignment revocation and restoration were verified through refresh. Auth privacy copy now accurately mentions assigned doctors. Existing patient layout is preserved.

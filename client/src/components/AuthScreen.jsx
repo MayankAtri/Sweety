@@ -104,7 +104,7 @@ export default function AuthScreen({ onAuthenticated, notice }) {
               <span>03</span>
               <div>
                 <strong>Your own space</strong>
-                <p>Only your account can access your readings.</p>
+                <p>You and your assigned doctors can view your readings.</p>
               </div>
             </li>
           </ol>

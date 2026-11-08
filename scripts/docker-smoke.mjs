@@ -33,3 +33,15 @@ assert.equal((await request(`/trends?date=${today}`)).readings.length, 0);
 await request('/auth/logout', { method: 'POST', status: 204 });
 await request('/auth/me', { status: 401 });
 console.log('Docker smoke passed: built frontend, health/config, signup, cookie auth, reading CRUD, reports/trends and logout.');
+// The documented development seed also provides a read-only assigned doctor.
+const doctor = await request('/auth/login', { method: 'POST', body: { email: 'doctor@sweety.example', password: 'SweetyDoctor123!' } });
+assert.equal(doctor.user.role, 'doctor');
+const patients = await request('/doctor/patients');
+const patient = patients.patients.find(item => item.email === 'demo@sweety.example');
+assert.ok(patient, 'Seeded doctor must be assigned the demo patient.');
+const reports = await request(`/doctor/patients/${patient.id}/reports?date=${today}`);
+assert.ok(reports.daily.count >= 2);
+await request(`/doctor/patients/${patient.id}/trends?date=${today}`);
+await request('/readings', { status: 403 });
+await request('/auth/logout', { method: 'POST', status: 204 });
+console.log('Docker doctor smoke passed: assigned patient list, reports/trends and denied self-reading access.');

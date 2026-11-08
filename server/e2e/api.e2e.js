@@ -13,7 +13,7 @@ if (!databaseUrl || !new URL(databaseUrl).pathname.endsWith('_test')) {
 }
 const origin = 'http://localhost:5173';
 let server, base, serverPort;
-const environment = { ...process.env, DATABASE_URL: databaseUrl, NODE_ENV: 'test', CLIENT_ORIGIN: origin };
+const environment = { ...process.env, DATABASE_URL: databaseUrl, NODE_ENV: 'test', CLIENT_ORIGIN: origin, REDIS_URL: process.env.TEST_REDIS_URL || '' };
 const script = name => fileURLToPath(new URL(`../${name}`, import.meta.url));
 
 async function startServer() {
@@ -89,7 +89,7 @@ test('HTTP E2E: new patient → readings → reports → restart → isolation �
     body: { name: 'E2E Patient', email, password } });
   assert.match(registration.headers.get('set-cookie'), /HttpOnly/);
   assert.equal(registration.body.user.email, email);
-  assert.deepEqual(Object.keys(registration.body.user).sort(), ['email', 'id', 'name']);
+  assert.deepEqual(Object.keys(registration.body.user).sort(), ['email', 'id', 'name', 'role']);
   assert.equal((await alice.send('/auth/me')).body.user.id, registration.body.user.id);
   const empty = (await alice.send('/reports?date=2024-05-15')).body;
   assert.equal(empty.daily.count, 0);
@@ -145,4 +145,57 @@ test('HTTP E2E: new patient → readings → reports → restart → isolation �
   assert.equal((await alice.send('/readings')).body.total, 5);
   await alice.send('/auth/logout', { method: 'POST', status: 204 });
   await bob.send('/auth/logout', { method: 'POST', status: 204 });
+});
+
+
+test('HTTP E2E: doctor assignment, shared report freshness, read-only access and revocation', { timeout: 30000 }, async () => {
+  const patient = browser();
+  const clinician = browser();
+  const stranger = browser();
+  const suffix = crypto.randomUUID();
+  const patientEmail = `patient-${suffix}@example.com`;
+  const doctorEmail = `doctor-${suffix}@example.com`;
+  const password = 'E2E-password-2026';
+  const { body: { user } } = await patient.send('/auth/register', { method: 'POST', status: 201,
+    body: { name: 'Assigned E2E Patient', email: patientEmail, password } });
+  await clinician.send('/auth/register', { method: 'POST', status: 201,
+    body: { name: 'E2E Doctor', email: doctorEmail, password } });
+  const manage = (...args) => execFileSync(process.execPath, [script('scripts/manage-doctor.js'), ...args], { env: environment, stdio: 'pipe' });
+  manage('promote', doctorEmail);
+  await clinician.send('/auth/login', { method: 'POST', body: { email: doctorEmail, password } });
+  assert.equal((await clinician.send('/auth/me')).body.user.role, 'doctor');
+  assert.equal((await clinician.send('/doctor/patients')).body.total, 0);
+  await clinician.send(`/doctor/patients/${user.id}/reports?date=2024-05-15`, { status: 404 });
+  manage('assign', doctorEmail, patientEmail);
+  assert.equal((await clinician.send('/doctor/patients')).body.patients[0].id, user.id);
+  const reportPath = `/doctor/patients/${user.id}/reports?date=2024-05-15`;
+  const trendPath = `/doctor/patients/${user.id}/trends?date=2024-05-15`;
+  assert.equal((await clinician.send(reportPath)).body.daily.count, 0);
+  assert.equal((await patient.send('/reports?date=2024-05-15')).body.daily.count, 0);
+  const reading = (await patient.send('/readings', { method: 'POST', status: 201,
+    body: { date: '2024-05-15', slot: 'morning', value: 101 } })).body.reading;
+  assert.equal((await clinician.send(reportPath)).body.daily.average, 101);
+  assert.equal((await clinician.send(trendPath)).body.readings[0].value, 101);
+  await patient.send(`/readings/${reading.id}`, { method: 'PUT',
+    body: { date: '2024-05-14', slot: 'after_lunch', value: 151 } });
+  assert.equal((await clinician.send(reportPath)).body.daily.count, 0);
+  assert.equal((await clinician.send(reportPath)).body.monthToDate.average, 151);
+  assert.equal((await clinician.send(trendPath)).body.readings[0].date, '2024-05-14');
+  for (const path of ['/readings', '/reports?date=2024-05-15', '/trends?date=2024-05-15']) {
+    await clinician.send(path, { status: 403 });
+  }
+  await clinician.send(`/readings/${reading.id}`, { method: 'DELETE', status: 403 });
+  await clinician.send('/readings', { method: 'POST', status: 403,
+    body: { date: '2024-05-15', slot: 'morning', value: 150 } });
+  await patient.send('/doctor/patients', { status: 403 });
+  await stranger.send(reportPath, { status: 401 });
+  await patient.send(`/readings/${reading.id}`, { method: 'DELETE', status: 204 });
+  assert.equal((await clinician.send(reportPath)).body.monthToDate.count, 0);
+  assert.equal((await clinician.send(trendPath)).body.readings.length, 0);
+  manage('revoke', doctorEmail, patientEmail);
+  await clinician.send(reportPath, { status: 404 });
+  await clinician.send(trendPath, { status: 404 });
+  assert.equal((await clinician.send('/doctor/patients')).body.total, 0);
+  await clinician.send('/auth/logout', { method: 'POST', status: 204 });
+  await clinician.send('/doctor/patients', { status: 401 });
 });

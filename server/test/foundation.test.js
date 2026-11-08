@@ -44,6 +44,7 @@ after(async () => { await pool.end(); });
 
 test('runtime config rejects invalid environment values and requires production HTTPS', async () => {
   for (const overrides of [
+    { REDIS_URL: 'http://invalid.example' }, { CACHE_TTL_SECONDS: '0' }, { CACHE_TTL_SECONDS: '3601' }, { CACHE_TTL_SECONDS: '1.5' },
     { NODE_ENV: 'staging' }, { PORT: '0' }, { PORT: '65536' }, { PORT: '1.5' },
     { DATABASE_URL: 'https://example.com/db' }, { DATABASE_URL: 'broken' },
     { APP_TIMEZONE: 'Mars/Nowhere' }, { CLIENT_ORIGIN: 'http://localhost:5173/' },

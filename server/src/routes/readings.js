@@ -53,8 +53,9 @@ async function withUserLock(userId, action) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const user = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const user = await client.query('SELECT id, role FROM users WHERE id = $1 FOR UPDATE', [userId]);
     if (!user.rowCount) throw new AppError(401, 'UNAUTHENTICATED', 'Please log in to continue.');
+    if (user.rows[0].role !== 'patient') throw new AppError(403, 'PATIENT_REQUIRED', 'This action is available to patient accounts only.');
     const result = await action(client);
     await client.query('COMMIT');
     return result;
