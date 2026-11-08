@@ -156,3 +156,8 @@ Read spec.md and AGENTS.md before work. Append records; do not rewrite history. 
 - Updated README, spec and TEST_REPORT with actual client commands, feature/verification matrix and limits. CI now runs all automated suites plus React build. Browser journeys are interactive CLI verification, not falsely claimed as automated CI browser coverage. Safari/Firefox/physical devices/formal screen-reader and deployed HTTPS checks remain unperformed.
 - Local API remains on 3001 with isolated PostgreSQL on 55439. Client dev process was stopped; optimized preview now runs at http://localhost:5173 . Use localhost to match CLIENT_ORIGIN. For edits stop preview before npm run dev:client (same port). Synthetic browser QA accounts remain local; seeded demo unchanged after QA.
 - Next: verify final pushed CI. Frontend phase is implemented and browser-verified; no hosting/deployment was requested or performed. Keep this handoff append-only and preserve secrets/ignored runtime directories.
+
+## 2026-11-08 13:28 Asia/Kolkata — lead CI build-mode correction
+- Final UI/testing milestone bba4e8c pushed; clean working tree and remote SHA confirmed before this follow-up.
+- Inspected installed Vite implementation and caught CI environment inheritance: job-wide NODE_ENV=test would also apply to the frontend build. Explicitly set NODE_ENV=production on the build step while retaining test mode for suites; renamed workflow App checks. Locally verified preview/build already used production mode, so browser acceptance is unchanged.
+- All user-facing work and screenshot artifacts are complete. Lead checks final CI after this small configuration push; local production preview remains running at localhost:5173 and API at localhost:3001.
